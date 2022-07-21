@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  migration:
+    image: "wertbon1789/wikijs-migration:0.1.0"
+    container_name: wikijs-migration
+    build:
+      context: ./build
+      dockerfile: ./Dockerfile
+    
+    
