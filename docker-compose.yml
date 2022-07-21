@@ -7,5 +7,10 @@ services:
     build:
       context: ./build
       dockerfile: ./Dockerfile
-    
-    
+    environment:
+      - WIKIJS_HOST=${WIKIJS_HOST}
+      - WIKIJS_TOKEN=${WIKIJS_TOKEN}
+      - MEDIAWIKI_SSH_HOST=${MEDIAWIKI_SSH_HOST}
+      - MEDIAWIKI_SSH_PORT=${MEDIAWIKI_SSH_PORT}
+      - MEDIAWIKI_SSH_USER=${MEDIAWIKI_SSH_USER}
+      - MEDIAWIKI_SSH_PASSWD=${MEDIAWIKI_SSH_PASSWD}
