@@ -1,7 +1,5 @@
 FROM alpine:3.15
 
-RUN 
-
 # Install Python and all build dependencies
 RUN apk update\
     && apk add python3~=3.9\
@@ -29,5 +27,7 @@ RUN apk update\
             build-base\
             libffi-dev\
     && rm -r /pandoc-2.18/bin/pandoc /pandoc-2.18-linux-amd64.tar.gz /root/.cargo /root/.cache
+
+COPY ./mediawiki2wikijs.py /mediawiki2wikijs.py
 
 CMD [ "tail", "-f", "/dev/null" ]
