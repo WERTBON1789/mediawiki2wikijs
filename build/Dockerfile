@@ -20,12 +20,14 @@ RUN apk update\
         psycopg~=3.0\
     && wget https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-linux-amd64.tar.gz\
     && tar -xf /pandoc-2.18-linux-amd64.tar.gz pandoc-2.18/bin/pandoc\
-    && apk del python3-dev\
-        openssl-dev\
-        rust\
-        cargo\
-        build-base\
-        libffi-dev\
+    && apk del wget\
+            py3-pip\
+            python3-dev\
+            openssl-dev\
+            rust\
+            cargo\
+            build-base\
+            libffi-dev\
     && rm -r /pandoc-2.18/bin/pandoc /pandoc-2.18-linux-amd64.tar.gz /root/.cargo /root/.cache
 
 CMD [ "tail", "-f", "/dev/null" ]
