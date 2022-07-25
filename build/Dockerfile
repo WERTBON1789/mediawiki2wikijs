@@ -30,4 +30,6 @@ RUN apk update\
 
 COPY ./mediawiki2wikijs.py /mediawiki2wikijs.py
 
+RUN chmod 755 /mediawiki2wikijs.py
+
 CMD [ "tail", "-f", "/dev/null" ]
