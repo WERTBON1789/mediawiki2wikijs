@@ -2,11 +2,13 @@
 import sys
 import os
 import datetime
-from typing import Generator, List
 import paramiko
+from subprocess import PIPE, Popen, call
+from typing import Generator, List
 from mediawiki_dump.dumps import LocalFileDump
 from mediawiki_dump.reader import DumpReader
 from mediawiki_dump.entry import DumpEntry
+from wikijspy import *
 
 WIKIJS_HOST              = os.environ.get("WIKIJS_HOST")
 WIKIJS_TOKEN             = os.environ.get("WIKIJS_TOKEN")
@@ -15,14 +17,51 @@ MEDIAWIKI_SSH_PORT       = os.environ.get("MEDIAWIKI_SSH_PORT")
 MEDIAWIKI_SSH_PASSWD     = os.environ.get("MEDIAWIKI_SSH_PASSWD")
 MEDIAWIKI_SSH_USER       = os.environ.get("MEDIAWIKI_SSH_USER")
 
-WIKI_XML_LOCATION        = "/home/jan/wiki.xml"
+WIKI_XML_LOCATION        = "/data/wiki.xml"
+WIKI_MD_DIR              = "/data/wiki-md"
+WIKI_TXT_DIR             = "/data/wiki-txt"
+
+class PageMetaData:
+    def __init__(self, content: str, contributor: str, timestamp: str) -> None:
+        self.content: str = content
+        self.contributor: str = contributor
+        self.timestamp: str = timestamp
+
+class PageCollection:
+    def __init__(self, title: str, creation_date: str) -> None:
+        self.title: str = title
+        self.creation_date: str = creation_date
+        self.last_updated: str = ""
+        self.metadata_list: List[PageMetaData] = []
+        self.counter: int = 0
+        
+    def add_entry(self, content: str, contributor: str, timestamp: str):
+        self.metadata_list.append(PageMetaData(content, contributor, timestamp))
+        if self.last_updated < timestamp:
+            self.last_updated = timestamp
+        self.counter += 1
+    
+    def __iter__(self):
+        self.i = 0
+        self.max = len(self.metadata_list)-1
+        return self
+    
+    def __next__(self):
+        if self.i<=self.max:
+            result = self.i
+            self.i += 1
+            return self.metadata_list[result]
+        else:
+            raise StopIteration
 
 class MediawikiMigration:
-    def __init__(self, hostname: str, ssh_user: str, ssh_passwd: str, ssh_port=22) -> None:
-        self.hostname = hostname
+    def __init__(self, mediawiki_host: str, ssh_user: str, ssh_passwd: str, wikijs_host: str, wikijs_token: str, ssh_port=22):
+        self.mediawiki_host = mediawiki_host
         self.ssh_user = ssh_user
         self.ssh_passwd = ssh_passwd
         self.ssh_port = ssh_port
+        self.wikijs_host = wikijs_host
+        self.wikijs_token = wikijs_token
     
     def download_wiki_dump(self, localpath: str):
         ssh = paramiko.SSHClient()
@@ -46,10 +85,50 @@ class MediawikiMigration:
             return sorted(pages, key=lambda x: x.timestamp)
         else:
             return list(pages)
+    
+    def migrate(self, pages: List[str]=None):
+        page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
+        pages_api = PagesApi(ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN)))
+        
+        page_data: Dict[str, PageCollection] = {}
+        
+        for page in page_dump:
+
+            page_title = page.title.split(':')[-1]
+
+            if page_title != "Hauptseite":
+                continue
+            
+            page_path = page.title\
+                .replace(':', '/')\
+                .replace(' ', '_')\
+                .replace('.', '_')
+            
+            if not page_path in page_data:
+                page_data[page_path] = PageCollection(page_title, page.timestamp)    
+            page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
+        
+        print(page_data["Hauptseite"].counter, page_data["Hauptseite"].creation_date, page_data["Hauptseite"].last_updated)
+    
+    def convert_content(self, content: str):
+        p = Popen(args=['pandoc', '-f', 'mediawiki', '-t', 'gfm', '-o', '/dev/stdout', '--wrap=none'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        stdout,stderr = p.communicate(input=content.encode('utf-8'))
+        
+        exitcode = p.wait()
+        return (exitcode, stdout, stderr)
+        
+    def fix_hyper_links(self, content: str):
+        pass
+    
+    def fix_asset_links(self, content: str):
+        pass
+    
+    def patch_broken_content(self, content: str):
+        pass
 
 def main():
-    pass
-
+    migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
+    migration.migrate()
 
 if __name__ == '__main__':
     main()
