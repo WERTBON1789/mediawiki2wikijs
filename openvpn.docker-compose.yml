@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  migration:
+    image: "wertbon1789/wikijs-migration:0.1.0"
+    container_name: wikijs-migration
+    build:
+      context: ./build
+      dockerfile: ./Dockerfile
+    environment:
+      - WIKIJS_HOST=${WIKIJS_HOST}
+      - WIKIJS_TOKEN=${WIKIJS_TOKEN}
+      - MEDIAWIKI_SSH_HOST=${MEDIAWIKI_SSH_HOST}
+      - MEDIAWIKI_SSH_PORT=${MEDIAWIKI_SSH_PORT}
+      - MEDIAWIKI_SSH_USER=${MEDIAWIKI_SSH_USER}
+      - MEDIAWIKI_SSH_PASSWD=${MEDIAWIKI_SSH_PASSWD}
+    depends_on:
+      - openvpn-client
+    network_mode: container:openvpn-client
+
+  openvpn-client:
+    image: ghcr.io/wfg/openvpn-client
+    container_name: openvpn-client
+    environment:
+      - SUBNETS=${OPENVPN_SUBNETS}
+      - KILL_SWITCH=off
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    volumes:
+      - type: bind
+        source: ./openvpn
+        target: /data/vpn
+      - type: bind
+        source: /etc/resolv.conf
+        target: /etc/resolv.conf
+        read_only: true
+    restart: unless-stopped
