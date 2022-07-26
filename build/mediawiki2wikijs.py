@@ -119,8 +119,8 @@ class MediawikiMigration:
                 if exitcode != 0:
                     for i in range(5):
                         exitcode,stdout,stderr = self.convert_content(patched_content)
-                    if exitcode == 0:
-                        break
+                        if exitcode == 0:
+                            break
             
             if exitcode == 0:
                 markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
@@ -139,7 +139,7 @@ class MediawikiMigration:
                         "responseResult": ["succeeded","errorCode","message"]
                     }),
                         page_id,
-                        content=entry.md_content.replace("\\", "").replace("\n", "\\n").replace("\"", "\\\""),
+                        content=entry.md_content,
                         isPublished=is_published,
                         isPrivate=is_private
                     )
@@ -148,7 +148,7 @@ class MediawikiMigration:
                         "responseResult": ["succeeded","errorCode","message"],
                         "page": ["id"]
                     }),
-                        content=entry.md_content.replace("\\", "").replace("\n", "\\n").replace("\"", "\\\""),
+                        content=entry.md_content,
                         editor="markdown",
                         isPrivate=False,
                         isPublished=False,
