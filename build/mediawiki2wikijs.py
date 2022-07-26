@@ -95,10 +95,7 @@ class MediawikiMigration:
         for page in page_dump:
 
             page_title = page.title.split(':')[-1]
-
-            if page_title != "Hauptseite":
-                continue
-            
+                        
             page_path = page.title\
                 .replace(':', '/')\
                 .replace(' ', '_')\
@@ -107,8 +104,7 @@ class MediawikiMigration:
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)    
             page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
-        
-        print(page_data["Hauptseite"].counter, page_data["Hauptseite"].creation_date, page_data["Hauptseite"].last_updated)
+
     
     def convert_content(self, content: str):
         p = Popen(args=['pandoc', '-f', 'mediawiki', '-t', 'gfm', '-o', '/dev/stdout', '--wrap=none'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
