@@ -126,6 +126,40 @@ class MediawikiMigration:
                 markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
                 page_data[page_path].add_entry(page.content, markdown_content, page.contributor, page.timestamp)
         
+        for path,data in page_data.items():
+            is_published = None
+            is_private = None
+            page_id = self.page_exists(path)
+            if page_id != -1:
+                (is_private, is_published) = [(item["isPrivate"], item("isPublished")) for item in self.pages_api.single(PageOutput("isPrivate", "isPublished"), page_id)["pages"]["single"]]
+            
+            for entry in data:
+                if page_id != -1:
+                    result = self.pages_api.update(PageResponseOutput({
+                        "responseResult": ["succeeded","errorCode","message"]
+                    }),
+                        page_id,
+                        content=entry.md_content.replace("\\", "").replace("\n", "\\n").replace("\"", "\\\""),
+                        isPublished=is_published,
+                        isPrivate=is_private
+                    )
+                else:
+                    result = self.pages_api.create(PageResponseOutput({
+                        "responseResult": ["succeeded","errorCode","message"],
+                        "page": ["id"]
+                    }),
+                        content=entry.md_content.replace("\\", "").replace("\n", "\\n").replace("\"", "\\\""),
+                        editor="markdown",
+                        isPrivate=False,
+                        isPublished=False,
+                        locale="en",
+                        path=path,
+                        tags=[],
+                        title=data.title,
+                        description=""
+                    )
+                    page_id = result["pages"]["create"]["page"]["id"]
+
     
     def convert_content(self, content: str):
         p = Popen(args=['pandoc', '-f', 'mediawiki', '-t', 'gfm', '-o', '/dev/stdout', '--wrap=none'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
