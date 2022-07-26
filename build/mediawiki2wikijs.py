@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from dataclasses import astuple, dataclass
 import re
 import sys
 import os
@@ -22,11 +23,14 @@ WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
 WIKI_TXT_DIR             = "/data/wiki-txt"
 
+@dataclass
 class PageMetaData:
-    def __init__(self, content: str, contributor: str, timestamp: str) -> None:
-        self.content: str = content
-        self.contributor: str = contributor
-        self.timestamp: str = timestamp
+    content: str
+    contributor: str
+    timestamp: str   
+    
+    def __iter__(self) -> tuple:
+        return iter(astuple(self))
 
 class PageCollection:
     def __init__(self, title: str, creation_date: str) -> None:
