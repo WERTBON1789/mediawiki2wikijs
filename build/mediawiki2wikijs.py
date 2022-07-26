@@ -26,9 +26,9 @@ WIKI_TXT_DIR             = "/data/wiki-txt"
 @dataclass
 class PageMetaData:
     content: str
-    md_content: str
     contributor: str
-    timestamp: str   
+    timestamp: str
+    md_content: str = None
     
     def __iter__(self) -> tuple:
         return iter(astuple(self))
@@ -41,11 +41,14 @@ class PageCollection:
         self.metadata_list: List[PageMetaData] = []
         self.counter: int = 0
         
-    def add_entry(self, content: str, md_content: str, contributor: str, timestamp: str):
-        self.metadata_list.append(PageMetaData(content, md_content, contributor, timestamp))
+    def add_entry(self, content: str, contributor: str, timestamp: str):
+        self.metadata_list.append(PageMetaData(content, contributor, timestamp))
         if self.last_updated < timestamp:
             self.last_updated = timestamp
         self.counter += 1
+    
+    def add_markdown_to_index(self, md_content: str, index: int):
+        self[index].md_content = md_content
     
     def __iter__(self):
         self.i = 0
@@ -59,6 +62,9 @@ class PageCollection:
             return self.metadata_list[result]
         else:
             raise StopIteration
+    
+    def __getitem__(self, item: int):
+        return self.metadata_list[item]
 
 class MediawikiMigration:
     def __init__(self, mediawiki_host: str, ssh_user: str, ssh_passwd: str, wikijs_host: str, wikijs_token: str, ssh_port=22):
@@ -96,7 +102,6 @@ class MediawikiMigration:
     def migrate(self, pages: List[str]=None):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
         
-        
         page_data: Dict[str, PageCollection] = {}
         
         for page in page_dump:
@@ -110,21 +115,8 @@ class MediawikiMigration:
             
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)
+            page_data[page_path].add_entry()
             
-            exitcode,stdout,stderr = self.convert_content(page.content)
-            
-            if exitcode != 0:
-                patched_content = self.patch_broken_content(page.content)
-                exitcode,stdout,stderr = self.convert_content(patched_content)
-                if exitcode != 0:
-                    for i in range(5):
-                        exitcode,stdout,stderr = self.convert_content(patched_content)
-                        if exitcode == 0:
-                            break
-            
-            if exitcode == 0:
-                markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
-                page_data[page_path].add_entry(page.content, markdown_content, page.contributor, page.timestamp)
         
         for path,data in page_data.items():
             is_published = None
@@ -132,8 +124,21 @@ class MediawikiMigration:
             page_id = self.page_exists(path)
             if page_id != -1:
                 (is_private, is_published) = [(item["isPrivate"], item("isPublished")) for item in self.pages_api.single(PageOutput("isPrivate", "isPublished"), page_id)["pages"]["single"]]
+            for index,entry in enumerate(data):
+                exitcode,stdout,stderr = self.convert_content(page.content)
             
-            for entry in data:
+                if exitcode != 0:
+                    patched_content = self.patch_broken_content(page.content)
+                    exitcode,stdout,stderr = self.convert_content(patched_content)
+                    if exitcode != 0:
+                        for i in range(5):
+                            exitcode,stdout,stderr = self.convert_content(patched_content)
+                            if exitcode == 0:
+                                break
+                
+                if exitcode == 0:
+                    markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
+                    page_data[page_path].add_markdown_to_index(markdown_content, index)
                 if page_id != -1:
                     result = self.pages_api.update(PageResponseOutput({
                         "responseResult": ["succeeded","errorCode","message"]
