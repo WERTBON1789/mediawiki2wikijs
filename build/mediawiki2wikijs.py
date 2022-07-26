@@ -128,7 +128,7 @@ class MediawikiMigration:
                 exitcode,stdout,stderr = self.convert_content(entry.content)
             
                 if exitcode != 0:
-                    patched_content = self.patch_broken_content(entry.content)
+                    patched_content = self.patch_broken_content(entry.content, stderr)
                     exitcode,stdout,stderr = self.convert_content(patched_content)
                     if exitcode != 0:
                         for i in range(5):
