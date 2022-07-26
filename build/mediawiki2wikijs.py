@@ -138,7 +138,7 @@ class MediawikiMigration:
                 
                 if exitcode == 0:
                     markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
-                    page_data[page_path].add_markdown_to_index(markdown_content, index)
+                    entry.md_content = markdown_content
                 else:
                     continue
                 if page_id != -1:
