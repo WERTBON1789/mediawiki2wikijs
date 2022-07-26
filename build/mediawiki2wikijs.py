@@ -115,7 +115,7 @@ class MediawikiMigration:
             
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)
-            page_data[page_path].add_entry()
+            page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
             
         
         for path,data in page_data.items():
