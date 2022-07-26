@@ -138,11 +138,46 @@ class MediawikiMigration:
 
         return content
     
-    def fix_asset_links(self, content: str):
-        pass
-    
-    def patch_broken_content(self, content: str):
-        pass
+    def patch_broken_content(self, content: str, stderr: bytes):
+        stderr = stderr.decode("utf-8")
+        
+        content = re.sub("{{prettytable}} width=.+%", "{{prettytable}}", content)
+        
+        split_content = content.splitlines()
+        for i in range(len(split_content)):
+            if split_content[i].find("{|") != -1:
+                replace = True
+            elif split_content[i].find("|}") != -1:
+                replace = False
+            
+            if replace:
+                if split_content[i].find("|}") == -1 and split_content[i].find("{|") == -1 and split_content[i].find("!") == -1:
+                    split_content[i] = split_content[i].replace("|", "!", 1)
+        
+        if "unexpected end of input" in stderr:
+            regex = re.search("(?s)<pre>(?!.+</pre>)", content)
+            if regex != None:
+                split_content.append("\n</pre>")
+            else:
+                regex = re.search("(?s)\{\|(?!.+\|\})", content)
+                if regex != None:
+                    split_content.append("\n|}")
+        
+        if 'unexpected "="' in stderr:
+            regex = re.search("line (.+),", stderr)
+            if regex != None:
+                num = int(regex.group(1))-1
+                del split_content[num]
+                
+        if "unexpected \"}\"" in stderr:
+            regex = re.search("line (.+),", stderr)
+            if regex != None:
+                num = int(regex.group(1))-1
+                split_content[num] = split_content[num].replace("}", "|}")
+        
+        content = '\n'.join(split_content)
+        
+        return content
     
     def page_exists(self, path: str) -> int:
         path_id_list = self.pages_api.list(PageListItemOutput(["id", "path"]))["pages"]["list"]
