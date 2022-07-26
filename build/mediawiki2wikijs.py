@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 import sys
 import os
 import datetime
@@ -62,6 +63,7 @@ class MediawikiMigration:
         self.ssh_port = ssh_port
         self.wikijs_host = wikijs_host
         self.wikijs_token = wikijs_token
+        self.pages_api = PagesApi(ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN)))
     
     def download_wiki_dump(self, localpath: str):
         ssh = paramiko.SSHClient()
@@ -88,7 +90,7 @@ class MediawikiMigration:
     
     def migrate(self, pages: List[str]=None):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
-        pages_api = PagesApi(ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN)))
+        
         
         page_data: Dict[str, PageCollection] = {}
         
@@ -102,9 +104,8 @@ class MediawikiMigration:
                 .replace('.', '_')
             
             if not page_path in page_data:
-                page_data[page_path] = PageCollection(page_title, page.timestamp)    
+                page_data[page_path] = PageCollection(page_title, page.timestamp)
             page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
-
     
     def convert_content(self, content: str):
         p = Popen(args=['pandoc', '-f', 'mediawiki', '-t', 'gfm', '-o', '/dev/stdout', '--wrap=none'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
@@ -114,13 +115,42 @@ class MediawikiMigration:
         return (exitcode, stdout, stderr)
         
     def fix_hyper_links(self, content: str):
-        pass
+        split_content = content.splitlines()
+    
+        for i in range(len(split_content)):
+            regex = re.search("\[(.+)\]\(Media:(.+) \"wikilink\"\)", split_content[i])
+            if regex != None:
+                split_content[i] = re.sub("\[.+\]\(Media:.+ \"wikilink\"\)", f"[{regex.group(1)}](/assets/{regex.group(2).lower()} \"{regex.group(1)}\")", split_content[i])
+            regex = re.search("\[(.+)\]\((.+) \"wikilink\"\)", split_content[i])
+            if regex != None:
+                split_content[i] = re.sub("\[.+\]\(.+ \"wikilink\"\)", f"[{regex.group(1).replace(':', '/')}](/{regex.group(2).replace(':', '/')} \"{regex.group(1).replace(':', '/')}\")", split_content[i])
+            regex = re.search("<a href=\"(.+)\" title=\"(.+)\">(.+)</a>", split_content[i])
+            if regex != None:
+                split_content[i] = re.sub("<a href=\".+\" title=\".+\">.+</a>", f"<a href=\"/{regex.group(1).replace(':', '/')}\" title=\"{regex.group(3)}\">{regex.group(3)}</a>", split_content[i])
+            regex = re.search("\!\[(.*)\]\((.+) \"(.+)\"\)", split_content[i])
+            if regex != None:
+                split_content[i] = re.sub("\!\[.*\]\(.+ \".+\"\)", f"![{regex.group(1)}](/assets/{regex.group(2).lower()} \"{regex.group(3)}\")", split_content[i])
+            regex = re.search("<img src=\"(.+)\" title=\"(.+)\" alt=\"(.+)\" />", split_content[i])
+            if regex != None:
+                split_content[i] = re.sub("<img src=\".+\" title=\".+\" alt=\".+\" />", f"<img src=\"/assets/{regex.group(1).lower()}\" title=\"{regex.group(2)}\" alt=\"{regex.group(3)}\" />", split_content[i])
+            
+        content = '\n'.join(split_content)
+
+        return content
     
     def fix_asset_links(self, content: str):
         pass
     
     def patch_broken_content(self, content: str):
         pass
+    
+    def page_exists(self, path: str) -> int:
+        path_id_list = self.pages_api.list(PageListItemOutput(["id", "path"]))["pages"]["list"]
+        id_list = [id for id,page_path in [(item["id"], item["path"]) for item in path_id_list] if page_path == path]
+        if len(id_list) > 0:
+            return id_list[0]
+        else:
+            return -1
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
