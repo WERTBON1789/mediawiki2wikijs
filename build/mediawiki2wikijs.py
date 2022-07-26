@@ -26,6 +26,7 @@ WIKI_TXT_DIR             = "/data/wiki-txt"
 @dataclass
 class PageMetaData:
     content: str
+    md_content: str
     contributor: str
     timestamp: str   
     
@@ -40,8 +41,8 @@ class PageCollection:
         self.metadata_list: List[PageMetaData] = []
         self.counter: int = 0
         
-    def add_entry(self, content: str, contributor: str, timestamp: str):
-        self.metadata_list.append(PageMetaData(content, contributor, timestamp))
+    def add_entry(self, content: str, md_content: str, contributor: str, timestamp: str):
+        self.metadata_list.append(PageMetaData(content, md_content, contributor, timestamp))
         if self.last_updated < timestamp:
             self.last_updated = timestamp
         self.counter += 1
@@ -109,7 +110,22 @@ class MediawikiMigration:
             
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)
-            page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
+            
+            exitcode,stdout,stderr = self.convert_content(page.content)
+            
+            if exitcode != 0:
+                patched_content = self.patch_broken_content(page.content)
+                exitcode,stdout,stderr = self.convert_content(patched_content)
+                if exitcode != 0:
+                    for i in range(5):
+                        exitcode,stdout,stderr = self.convert_content(patched_content)
+                    if exitcode == 0:
+                        break
+            
+            if exitcode == 0:
+                markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
+                page_data[page_path].add_entry(page.content, markdown_content, page.contributor, page.timestamp)
+        
     
     def convert_content(self, content: str):
         p = Popen(args=['pandoc', '-f', 'mediawiki', '-t', 'gfm', '-o', '/dev/stdout', '--wrap=none'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
