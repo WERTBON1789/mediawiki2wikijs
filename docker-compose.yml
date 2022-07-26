@@ -2,7 +2,7 @@ version: '3'
 
 services:
   migration:
-    image: "wertbon1789/wikijs-migration:0.1.0"
+    image: "wertbon1789/wikijs-migration:0.1.1"
     container_name: wikijs-migration
     build:
       context: ./build
