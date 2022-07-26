@@ -125,10 +125,10 @@ class MediawikiMigration:
             if page_id != -1:
                 (is_private, is_published) = [(item["isPrivate"], item("isPublished")) for item in self.pages_api.single(PageOutput("isPrivate", "isPublished"), page_id)["pages"]["single"]]
             for index,entry in enumerate(data):
-                exitcode,stdout,stderr = self.convert_content(page.content)
+                exitcode,stdout,stderr = self.convert_content(entry.content)
             
                 if exitcode != 0:
-                    patched_content = self.patch_broken_content(page.content)
+                    patched_content = self.patch_broken_content(entry.content)
                     exitcode,stdout,stderr = self.convert_content(patched_content)
                     if exitcode != 0:
                         for i in range(5):
