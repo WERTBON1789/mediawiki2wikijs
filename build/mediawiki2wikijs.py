@@ -84,7 +84,7 @@ class MediawikiMigration:
         self.wikijs_host = wikijs_host
         self.wikijs_token = wikijs_token
         self.pages_api = PagesApi(ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN)))
-        self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
+        self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST.split('://')[-1]} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
     
     def download_wiki_dump(self, localpath: str):
         ssh = paramiko.SSHClient()
