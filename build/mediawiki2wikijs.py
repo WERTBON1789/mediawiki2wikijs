@@ -124,7 +124,7 @@ class MediawikiMigration:
             page_id = self.page_exists(path)
             if page_id != -1:
                 self.pages_api.delete(page_id)
-            for index,entry in enumerate(data):
+            for entry in data:
                 exitcode,stdout,stderr = self.convert_content(entry.content)
             
                 if exitcode != 0:
