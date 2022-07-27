@@ -123,7 +123,7 @@ class MediawikiMigration:
             is_private = None
             page_id = self.page_exists(path)
             if page_id != -1:
-                (is_private, is_published) = [(item["isPrivate"], item("isPublished")) for item in self.pages_api.single(PageOutput("isPrivate", "isPublished"), page_id)["pages"]["single"]]
+                self.pages_api.delete(page_id)
             for index,entry in enumerate(data):
                 exitcode,stdout,stderr = self.convert_content(entry.content)
             
