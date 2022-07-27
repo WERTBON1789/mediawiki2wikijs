@@ -154,6 +154,7 @@ class MediawikiMigration:
                     entry.md_content = markdown_content
                 else:
                     logger.error(f"Failed to convert {path} version {index}")
+                    del page_data[path][index]
                     continue
                 if page_id != -1:
                     result = self.pages_api.update(PageResponseOutput({
@@ -269,9 +270,18 @@ class MediawikiMigration:
         else:
             return -1
     
-    def change_page_date(self, path: str, timestamp: str):
-        pass
-    
+    def change_page_dates(self, path: str, collection: PageCollection):
+        page_id = self.page_exists(path)
+        if page_id == -1:
+            return
+        with self.sql_client.cursor() as cur:
+            rev_id_list: List[int] = [item[0] for item in sorted(cur.execute(f"SELECT id FROM \"pageHistory\" WHERE \"pageId\"={page_id}").fetchall(), key = lambda x: x[0])]
+
+            for rev_id,entry in zip(rev_id_list, collection):
+                cur.execute(f'UPDATE "pageHistory" SET "versionDate" = \'{entry.timestamp}\' WHERE id={rev_id}')
+            
+            cur.execute(f'UPDATE pages SET "createdAt" = \'{collection[0].timestamp}\', "updatedAt" = \'{collection[-1].timestamp}\' WHERE id={page_id}')
+        self.sql_client.commit()
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
