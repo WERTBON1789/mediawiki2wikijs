@@ -110,6 +110,7 @@ class MediawikiMigration:
         
         page_data: Dict[str, PageCollection] = {}
         
+        logger.info("Contructing the page_data dict")
         for page in page_dump:
 
             page_title = page.title.split(':')[-1]
@@ -122,16 +123,17 @@ class MediawikiMigration:
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)
             page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
-            
+        logger.info("Finished construction of the page_data dict")
         
         for path,data in page_data.items():
             is_published = True
             is_private = False
             page_id = self.page_exists(path)
             if page_id != -1:
+                logger.warning(f"Page {path} already existed and will be overwritten!")
                 self.pages_api.delete(DefaultResponseOutput({"responseResult": ["errorCode"]}), page_id)
                 page_id = -1
-            for entry in data:
+            for index,entry in enumerate(data):
                 exitcode,stdout,stderr = self.convert_content(entry.content)
             
                 if exitcode != 0:
@@ -147,6 +149,7 @@ class MediawikiMigration:
                     markdown_content = self.fix_hyper_links(stdout.decode('utf-8'))
                     entry.md_content = markdown_content
                 else:
+                    logger.error(f"Failed to convert {path} version {index}")
                     continue
                 if page_id != -1:
                     result = self.pages_api.update(PageResponseOutput({
@@ -157,6 +160,7 @@ class MediawikiMigration:
                         isPublished=is_published,
                         isPrivate=is_private
                     )
+                    logger.info(f"Updated {path} to version {index}.")
                 else:
                     result = self.pages_api.create(PageResponseOutput({
                         "responseResult": ["succeeded","errorCode","message"],
@@ -173,6 +177,7 @@ class MediawikiMigration:
                         description=""
                     )
                     page_id = result["pages"]["create"]["page"]["id"]
+                    logger.info(f"Created {path}.")
 
     
     def convert_content(self, content: str):
@@ -180,6 +185,10 @@ class MediawikiMigration:
         stdout,stderr = p.communicate(input=content.encode('utf-8'))
         
         exitcode = p.wait()
+        if exitcode != 0:
+            logger.warning(f"Pandoc exited with an exitcode of {exitcode}")
+            logger.debug(f"Pandoc output: stdout:{stdout.decode('utf-8')}\n")
+            logger.debug(f"Pandoc output: stderr:{stderr.decode('utf-8')}\n")
         return (exitcode, stdout, stderr)
         
     def fix_hyper_links(self, content: str):
