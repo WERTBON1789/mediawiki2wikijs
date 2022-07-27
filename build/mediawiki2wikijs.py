@@ -26,7 +26,7 @@ MIGRATION_LOG            = "/data/wiki-migration.log"
 ERR_PAGES_LOG            = "/data/err-pages.log"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=MIGRATION_LOG)
+logging.basicConfig(filename=MIGRATION_LOG, level=logging.INFO, filemode='a')
 logging.getLogger("gql").setLevel(logging.WARNING)
 
 @dataclass
