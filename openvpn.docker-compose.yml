@@ -14,6 +14,8 @@ services:
       - MEDIAWIKI_SSH_PORT=${MEDIAWIKI_SSH_PORT}
       - MEDIAWIKI_SSH_USER=${MEDIAWIKI_SSH_USER}
       - MEDIAWIKI_SSH_PASSWD=${MEDIAWIKI_SSH_PASSWD}
+      - PSQL_HOST=${PSQL_HOST}
+      - PSQL_PORT=${PSQL_PORT}
     depends_on:
       - openvpn-client
     network_mode: container:openvpn-client
