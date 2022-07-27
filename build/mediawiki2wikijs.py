@@ -75,6 +75,9 @@ class PageCollection:
     def __getitem__(self, item: int):
         return self.metadata_list[item]
 
+    def __delitem__(self, item: int):
+        del self.metadata_list[item]
+
 class MediawikiMigration:
     def __init__(self, mediawiki_host: str, ssh_user: str, ssh_passwd: str, wikijs_host: str, wikijs_token: str, ssh_port=22):
         self.mediawiki_host = mediawiki_host
