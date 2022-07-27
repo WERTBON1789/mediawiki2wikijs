@@ -11,6 +11,7 @@ RUN apk update\
             cargo~=1.56\
             build-base~=0.5\
             libffi-dev~=3.4.2\
+            postgresql13-client~=13.7\
     && pip install wheel~=0.37\
         paramiko~=2.11\
         mediawiki-dump~=1.0.0\
