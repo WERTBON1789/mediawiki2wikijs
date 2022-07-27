@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-from dataclasses import astuple, dataclass
-import re
 import sys
 import os
-import datetime
+import re
 import paramiko
+import logging
+from dataclasses import astuple, dataclass
 from subprocess import PIPE, Popen, call
 from typing import Generator, List
 from mediawiki_dump.dumps import LocalFileDump
@@ -22,6 +22,12 @@ MEDIAWIKI_SSH_USER       = os.environ.get("MEDIAWIKI_SSH_USER")
 WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
 WIKI_TXT_DIR             = "/data/wiki-txt"
+MIGRATION_LOG            = "/data/wiki-migration.log"
+ERR_PAGES_LOG            = "/data/err-pages.log"
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename=MIGRATION_LOG)
+logging.getLogger("gql").setLevel(logging.WARNING)
 
 @dataclass
 class PageMetaData:
