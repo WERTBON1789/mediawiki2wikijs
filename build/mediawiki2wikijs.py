@@ -4,6 +4,7 @@ import os
 import re
 import paramiko
 import logging
+import psycopg as psql
 from dataclasses import astuple, dataclass
 from subprocess import PIPE, Popen, call
 from typing import Generator, List
@@ -18,6 +19,8 @@ MEDIAWIKI_HOST           = os.environ.get("MEDIAWIKI_SSH_HOST")
 MEDIAWIKI_SSH_PORT       = os.environ.get("MEDIAWIKI_SSH_PORT")
 MEDIAWIKI_SSH_PASSWD     = os.environ.get("MEDIAWIKI_SSH_PASSWD")
 MEDIAWIKI_SSH_USER       = os.environ.get("MEDIAWIKI_SSH_USER")
+PSQL_HOST                = os.environ.get("PSQL_HOST")
+PSQL_PORT                = os.environ.get("PSQL_PORT")
 
 WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
@@ -81,6 +84,7 @@ class MediawikiMigration:
         self.wikijs_host = wikijs_host
         self.wikijs_token = wikijs_token
         self.pages_api = PagesApi(ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN)))
+        self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
     
     def download_wiki_dump(self, localpath: str):
         ssh = paramiko.SSHClient()
@@ -264,6 +268,10 @@ class MediawikiMigration:
             return id_list[0]
         else:
             return -1
+    
+    def change_page_date(self, path: str, timestamp: str):
+        pass
+    
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
