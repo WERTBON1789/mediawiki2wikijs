@@ -119,8 +119,8 @@ class MediawikiMigration:
             
         
         for path,data in page_data.items():
-            is_published = None
-            is_private = None
+            is_published = True
+            is_private = False
             page_id = self.page_exists(path)
             if page_id != -1:
                 self.pages_api.delete(page_id)
@@ -157,8 +157,8 @@ class MediawikiMigration:
                     }),
                         content=entry.md_content,
                         editor="markdown",
-                        isPrivate=False,
-                        isPublished=False,
+                        isPrivate=is_private,
+                        isPublished=is_published,
                         locale="en",
                         path=path,
                         tags=[],
