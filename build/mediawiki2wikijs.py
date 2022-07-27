@@ -205,6 +205,7 @@ class MediawikiMigration:
         content = re.sub("{{prettytable}} width=.+%", "{{prettytable}}", content)
         
         split_content = content.splitlines()
+        replace = False
         for i in range(len(split_content)):
             if split_content[i].find("{|") != -1:
                 replace = True
