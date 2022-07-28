@@ -5,6 +5,7 @@ import re
 import paramiko
 import logging
 import psycopg as psql
+import ldap3
 from dataclasses import astuple, dataclass
 from subprocess import PIPE, Popen, call
 from typing import Generator, List
@@ -91,7 +92,10 @@ class MediawikiMigration:
         self.ssh_port = ssh_port
         self.wikijs_host = wikijs_host
         self.wikijs_token = wikijs_token
-        self.pages_api = PagesApi(ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN)))
+        self._api_client = ApiClient(Configuration(WIKIJS_HOST, WIKIJS_TOKEN))
+        self.pages_api = PagesApi(self._api_client)
+        self.auth_client = AuthenticationApi(self._api_client)
+        self.users_client = UsersApi(self._api_client)
         self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST.split('://')[-1]} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
     
     def download_wiki_dump(self, localpath: str):
@@ -302,6 +306,35 @@ class MediawikiMigration:
             
             cur.execute(f'UPDATE pages SET "createdAt" = \'{collection[0].timestamp}\', "updatedAt" = \'{collection[-1].timestamp}\' WHERE id={page_id}')
         self.sql_client.commit()
+    
+    def import_users_from_ldap(self):
+        logger.warning("Importing all LDAP users...")
+        ldap = ldap3.Server(LDAP_HOST)
+        ldap_connection = ldap3.Connection(ldap, LDAP_ADMIN_DN, LDAP_ADMIN_PASSWD)
+        ldap_connection.bind()
+        
+        ldap_connection.search(LDAP_USERS_DN, LDAP_FILTER, attributes=['cn', 'mail', 'userPassword'])
+        
+        strats = self._api_client.send_request("query{authentication{activeStrategies(enabledOnly: true){displayName,key,strategy{key}}}}")
+        
+        ldap_strat_key = None
+        
+        for strat in strats["authentication"]["activeStrategies"]:
+            if strat["strategy"]["key"] == "ldap":
+                logger.info(f"Using Strategy {strat['displayName']}")
+                ldap_strat_key = strat["key"]
+        
+        if ldap_strat_key is None:
+            logger.error("Couldn't find a valid Authentication Strategy!")
+            return
+
+        for entry in ldap_connection.entries:
+            result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode", "message"]}), str(entry["mail"]), str(entry["cn"]), ldap_strat_key, str(entry["userPassword"]))
+            if result["users"]["create"]["responseResult"]["errorCode"] == 1004:
+                logger.warning(f"There already is an account using this email: {str(entry['mail'])}")
+            if result["users"]["create"]["responseResult"]["errorCode"] == 1012:
+                logger.warning(f"The email of the LDAP user {str(entry['cn'])} is invalid!")
+        
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
