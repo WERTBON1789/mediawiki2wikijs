@@ -150,6 +150,9 @@ class MediawikiMigration:
         
         page_data: Dict[str, PageCollection] = {}
         
+        with open("/username_mapping.json", "r") as f:
+            newname_dict: Dict[str, Any] = json.loads(f.read())
+        
         logger.info("Contructing the page_data dict")
         for page in page_dump:
 
@@ -170,7 +173,7 @@ class MediawikiMigration:
             
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)
-            page_data[page_path].add_entry(page.content, page.contributor, page.timestamp)
+            page_data[page_path].add_entry(page.content, newname_dict.get(page.contributor, page.contributor), page.timestamp)
         logger.info("Finished construction of the page_data dict")
         
         for path,data in page_data.items():
@@ -229,7 +232,7 @@ class MediawikiMigration:
                     logger.info(f"Created {path}.")
             
             logger.info(f"Changing dates of page {path}...")
-            self.change_page_dates(path, data)
+            self.change_page_dates(page_id, data)
             logger.info(f"Finished changing dates of page {path}.")
 
     
@@ -318,8 +321,7 @@ class MediawikiMigration:
         else:
             return -1
     
-    def change_page_dates(self, path: str, collection: PageCollection):
-        page_id = self.page_exists(path)
+    def change_page_dates(self, page_id: int, collection: PageCollection):
         if page_id == -1:
             return
         with self.sql_client.cursor() as cur:
