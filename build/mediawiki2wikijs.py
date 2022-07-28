@@ -126,9 +126,10 @@ class MediawikiMigration:
                 .replace(':', '/')\
                 .replace(' ', '_')\
                 .replace('.', '_')
-                
-            if not page_path in pages:
-                continue
+            
+            if pages:
+                if not page_path in pages:
+                    continue
             
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title, page.timestamp)
