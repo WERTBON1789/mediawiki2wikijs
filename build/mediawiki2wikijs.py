@@ -21,6 +21,11 @@ MEDIAWIKI_SSH_PASSWD     = os.environ.get("MEDIAWIKI_SSH_PASSWD")
 MEDIAWIKI_SSH_USER       = os.environ.get("MEDIAWIKI_SSH_USER")
 PSQL_HOST                = os.environ.get("PSQL_HOST")
 PSQL_PORT                = os.environ.get("PSQL_PORT")
+LDAP_HOST                = os.environ.get("LDAP_HOST")
+LDAP_ADMIN_DN            = os.environ.get("LDAP_ADMIN_DN")
+LDAP_ADMIN_PASSWD        = os.environ.get("LDAP_ADMIN_PASSWD")
+LDAP_USERS_DN            = os.environ.get("LDAP_USERS_DN")
+LDAP_FILTER              = os.environ.get("LDAP_FILTER")
 
 WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
