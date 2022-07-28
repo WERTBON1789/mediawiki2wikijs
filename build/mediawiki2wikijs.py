@@ -112,7 +112,7 @@ class MediawikiMigration:
         else:
             return list(pages)
     
-    def migrate(self, pages: List[str]=None):
+    def migrate(self, page_whitelist: List[str]=None, page_blacklist: List[str] = None):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
         
         page_data: Dict[str, PageCollection] = {}
@@ -127,8 +127,12 @@ class MediawikiMigration:
                 .replace(' ', '_')\
                 .replace('.', '_')
             
-            if pages:
-                if not page_path in pages:
+            if page_whitelist:
+                if not page_path in page_whitelist:
+                    continue
+                
+            if page_blacklist:
+                if page_path in page_blacklist:
                     continue
             
             if not page_path in page_data:
