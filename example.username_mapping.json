@@ -1,3 +1,6 @@
 {
-    "OldName": "NewName"
+    "OldName": "NewName",
+    "Mediawiki default": "Administrator",
+    "MediaWiki default": "Administrator",
+    "Admin": "Administrator"
 }
