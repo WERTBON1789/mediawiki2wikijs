@@ -28,6 +28,7 @@ LDAP_ADMIN_DN            = os.environ.get("LDAP_ADMIN_DN")
 LDAP_ADMIN_PASSWD        = os.environ.get("LDAP_ADMIN_PASSWD")
 LDAP_USERS_DN            = os.environ.get("LDAP_USERS_DN")
 LDAP_FILTER              = os.environ.get("LDAP_FILTER")
+IMPORT_LDAP              = os.environ.get("IMPORT_LDAP")
 
 WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
@@ -397,6 +398,9 @@ class MediawikiMigration:
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
+    if IMPORT_LDAP == "true":
+        migration.import_users_from_ldap()
+    migration.import_users_from_wiki()
     migration.migrate()
 
 if __name__ == '__main__':
