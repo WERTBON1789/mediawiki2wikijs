@@ -17,6 +17,7 @@ RUN apk update\
         mediawiki-dump~=1.0.0\
         gql~=3.4\
         psycopg~=3.0\
+        ldap3~=2.9\
         wikijspy\
     && wget https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-linux-amd64.tar.gz\
     && tar -xf /pandoc-2.18-linux-amd64.tar.gz pandoc-2.18/bin/pandoc && mv /pandoc-2.18/bin/pandoc /usr/bin\
