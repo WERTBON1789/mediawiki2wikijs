@@ -234,6 +234,10 @@ class MediawikiMigration:
             logger.info(f"Changing dates of page {path}...")
             self.change_page_dates(page_id, data)
             logger.info(f"Finished changing dates of page {path}.")
+            logger.info(f"Changing authors of page {path}...")
+            self.change_page_authors(page_id, data)
+            logger.info(f"Finished changing authors of page {path}.")
+            
 
     
     def convert_content(self, content: str):
@@ -331,6 +335,27 @@ class MediawikiMigration:
                 cur.execute(f'UPDATE "pageHistory" SET "versionDate" = \'{entry.timestamp}\' WHERE id={rev_id}')
             
             cur.execute(f'UPDATE pages SET "createdAt" = \'{collection[0].timestamp}\', "updatedAt" = \'{collection[-1].timestamp}\' WHERE id={page_id}')
+        self.sql_client.commit()
+    
+    def change_page_authors(self, page_id: int, collection: PageCollection):
+        if page_id == -1:
+            return
+        
+        user_id_dict = {}
+        
+        user_id_list = self.users_client.list(UserMinimalOutput(["id", "name"]))["users"]["list"]
+        
+        for user in user_id_list:
+            if not user["name"] in user_id_dict:
+                user_id_dict[user["name"]] = user["id"]
+        
+        with self.sql_client.cursor() as cur:
+            rev_id_list: List[int] = [item[0] for item in sorted(cur.execute(f"SELECT id FROM \"pageHistory\" WHERE \"pageId\"={page_id}").fetchall(), key = lambda x: x[0])]
+            
+            for rev_id,entry in zip(rev_id_list, collection):
+                cur.execute(f'UPDATE "pageHistory" SET "authorId" = \'{user_id_dict[entry.contributor]}\' WHERE id={rev_id}')
+            
+            cur.execute(f'UPDATE pages SET "creatorId" = \'{user_id_dict[collection[0].contributor]}\', "authorId" = \'{user_id_dict[collection[-1].contributor]}\' WHERE id={page_id}')
         self.sql_client.commit()
     
     def import_users_from_ldap(self):
