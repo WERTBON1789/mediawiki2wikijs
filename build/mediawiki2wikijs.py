@@ -84,6 +84,28 @@ class PageCollection:
     def __delitem__(self, item: int):
         del self.metadata_list[item]
 
+class AuthenticationUserErrors(Enum):
+    AuthGenericError = 1001
+    AuthLoginFailed = 1002
+    AuthProviderInvalid = 1003
+    AuthAccountAlreadyExists = 1004
+    AuthTFAFailed = 1005
+    AuthTFAInvalid = 1006
+    BruteInstanceIsInvalid = 1007
+    BruteTooManyAttempts = 1008
+    UserCreationFailed = 1009
+    AuthRegistrationDisabled = 1010
+    AuthRegistrationDomainUnauthorized = 1011
+    InputInvalid = 1012
+    AuthAccountBanned = 1013
+    AuthAccountNotVerified = 1014
+    AuthValidationTokenInvalid = 1015
+    UserNotFound = 1016
+    UserDeleteForeignConstraint = 1017
+    UserDeleteProtected = 1018
+    AuthRequired = 1019
+    AuthPasswordInvalid = 1020
+
 class MediawikiMigration:
     def __init__(self, mediawiki_host: str, ssh_user: str, ssh_passwd: str, wikijs_host: str, wikijs_token: str, ssh_port=22):
         self.mediawiki_host = mediawiki_host
@@ -329,10 +351,12 @@ class MediawikiMigration:
             return
 
         for entry in ldap_connection.entries:
+            logger(f"Creating user {str(entry['cn'])}.")
             result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode", "message"]}), str(entry["mail"]), str(entry["cn"]), ldap_strat_key, str(entry["userPassword"]))
-            if result["users"]["create"]["responseResult"]["errorCode"] == 1004:
+            error_code = result["users"]["create"]["responseResult"]["errorCode"]
+            if error_code == AuthenticationUserErrors.AuthAccountAlreadyExists:
                 logger.warning(f"There already is an account using this email: {str(entry['mail'])}")
-            if result["users"]["create"]["responseResult"]["errorCode"] == 1012:
+            if error_code == AuthenticationUserErrors.InputInvalid:
                 logger.warning(f"The email of the LDAP user {str(entry['cn'])} is invalid!")
         
 
