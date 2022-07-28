@@ -190,6 +190,10 @@ class MediawikiMigration:
                     )
                     page_id = result["pages"]["create"]["page"]["id"]
                     logger.info(f"Created {path}.")
+            
+            logger.info(f"Changing dates of page {path}...")
+            self.change_page_dates(path, data)
+            logger.info(f"Finished changing dates of page {path}.")
 
     
     def convert_content(self, content: str):
