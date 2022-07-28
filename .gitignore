@@ -1,2 +1,3 @@
 .env
 /openvpn/*
+/username_mapping.json

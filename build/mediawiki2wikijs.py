@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import sys
 import os
 import re
@@ -351,14 +352,48 @@ class MediawikiMigration:
             return
 
         for entry in ldap_connection.entries:
-            logger(f"Creating user {str(entry['cn'])}.")
+            logger.info(f"Creating user {str(entry['cn'])}.")
             result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode", "message"]}), str(entry["mail"]), str(entry["cn"]), ldap_strat_key, str(entry["userPassword"]))
             error_code = result["users"]["create"]["responseResult"]["errorCode"]
             if error_code == AuthenticationUserErrors.AuthAccountAlreadyExists:
                 logger.warning(f"There already is an account using this email: {str(entry['mail'])}")
             if error_code == AuthenticationUserErrors.InputInvalid:
                 logger.warning(f"The email of the LDAP user {str(entry['cn'])} is invalid!")
+    
+    def import_users_from_wiki(self):
+        page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
         
+        newname_dict = None
+        
+        with open("/username_mapping.json", "r") as f:
+            newname_dict: Dict[str, Any] = json.loads(f.read())
+        
+        wiki_users = []
+        
+        for page in page_dump:
+            if not page.contributor in wiki_users:
+                wiki_users.append(page.contributor)
+        
+        wikijs_users = [user["name"] for user in self.users_client.list(UserMinimalOutput(["id", "name"]))["users"]["list"]]
+        
+        for i in wiki_users:
+            new_name = newname_dict.get(i, i)
+            if new_name in wikijs_users:
+                logger.warning(f"User {new_name} already exists on wikijs!")
+            else:
+                logger.info(f"Creating user {new_name}")
+                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name}@example.com", new_name, "local", "{SHA}cRDtpNCeBiql5KOQsKVyrA0sAiA=")
+                error_code = result["users"]["create"]["responseResult"]["errorCode"]
+                if error_code == AuthenticationUserErrors.AuthAccountAlreadyExists:
+                    logger.warning(f"There already is an account using this email: {f'{new_name}@example.com'}")
+                    continue
+                if error_code == AuthenticationUserErrors.InputInvalid:
+                    logger.warning(f"The email of the LDAP user {new_name} is invalid!")
+                    continue
+                
+                for user in self.users_client.list(UserMinimalOutput(["id", "name"]))["users"]["list"]:
+                    if new_name == user["name"]:
+                        self.users_client.deactivate(DefaultResponseOutput({"responseResult": ["errorCode"]}), user["id"])
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
