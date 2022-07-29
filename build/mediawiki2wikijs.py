@@ -7,6 +7,7 @@ import paramiko
 import logging
 import psycopg as psql
 import ldap3
+import requests
 from dataclasses import astuple, dataclass
 from subprocess import PIPE, Popen, call
 from typing import Generator, List
@@ -29,12 +30,15 @@ LDAP_ADMIN_PASSWD        = os.environ.get("LDAP_ADMIN_PASSWD")
 LDAP_USERS_DN            = os.environ.get("LDAP_USERS_DN")
 LDAP_FILTER              = os.environ.get("LDAP_FILTER")
 IMPORT_LDAP              = os.environ.get("IMPORT_LDAP")
+MEDIAWIKI_ASSETS         = os.environ.get("MEDIAWIKI_ASSETS")
 
 WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
 WIKI_TXT_DIR             = "/data/wiki-txt"
 MIGRATION_LOG            = "/data/wiki-migration.log"
 ERR_PAGES_LOG            = "/data/err-pages.log"
+WIKI_IMG_LOCATION        = "/data/wiki-img.tar.gz"
+ASSET_FOLDER             = "assets"
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename=MIGRATION_LOG, level=logging.INFO, filemode='a')
@@ -121,6 +125,7 @@ class MediawikiMigration:
         self.pages_api = PagesApi(self._api_client)
         self.auth_client = AuthenticationApi(self._api_client)
         self.users_client = UsersApi(self._api_client)
+        self.assets_client = AssetsApi(self._api_client)
         self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST.split('://')[-1]} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
     
     def download_wiki_dump(self, localpath: str):
@@ -145,6 +150,76 @@ class MediawikiMigration:
             return sorted(pages, key=lambda x: x.timestamp)
         else:
             return list(pages)
+    
+    def download_wiki_images(self, localpath: str):
+        ssh = paramiko.SSHClient()
+        
+        ssh.load_system_host_keys()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(self.mediawiki_host, self.ssh_port, self.ssh_user, self.ssh_passwd)
+        sftp = ssh.open_sftp()
+        
+        stdin,stdout,stderr = ssh.exec_command(command=f"cd {MEDIAWIKI_ASSETS} ; tar -czf /tmp/wiki_images.tar.gz ./*")
+        stdin.close()
+        
+        stdout.channel.recv_exit_status()
+        
+        sftp.get("/tmp/wiki_images.tar.gz", localpath)
+    
+    def unpack_wiki_images(self, localpath: str):
+        if not os.path.exists("/tmp/assets"):
+            os.mkdir("/tmp/assets")
+            call(args=["tar", "-xf", f"{localpath}", "-C", "/tmp/assets"])
+            
+    def migrate_assets(self):
+        file_ext_dict = {
+            ".png" : "image/png",
+            ".jpg" : "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif" : "image/gif",
+            ".pdf" : "application/pdf",
+            ".log" : "text/x-log",
+            ".bin" : "application/octet-stream",
+            ".txt" : "text/plain",
+            ".zip" : "application/zip",
+            ".diff": "text/x-patch",
+            ".ico" : "image/x-icon"
+        }
+        
+        url = f'{WIKIJS_HOST}/u'
+        
+        headers = {
+            'Authorization': f'Bearer {WIKIJS_TOKEN}'
+        }
+        
+        asset_folder_id = None
+        
+        for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]))["assets"]["folders"]:
+            if folder["name"] == ASSET_FOLDER:
+                asset_folder_id = folder["id"]
+        
+        if asset_folder_id is None:
+            self.assets_client.createFolder(DefaultResponseOutput({"responseResult": ["errorCode"]}), 0, "assets", "Assets")
+        
+        for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]))["assets"]["folders"]:
+            if folder["name"] == ASSET_FOLDER:
+                asset_folder_id = folder["id"]
+        
+        self._api_client.send_request("mutation{site{updateConfig(uploadMaxFileSize:104857600){responseResult{errorCode}}}}") # Setting the file upload size limit to 100 mb
+        
+        for base,dirs,files in os.walk("/tmp/images"):
+            if files:
+                if base.find("deleted") == -1 and base.find("archive") == -1:
+                    for filename in files:
+                        filepath = base+"/"+filename
+                        with open(filepath, 'rb') as f:
+                            
+                            files = (
+                                ('mediaUpload', (None, '{"folderId":'f'{asset_folder_id}''}')),
+                                ('mediaUpload', (os.path.basename(filepath), f, file_ext_dict.get(os.path.splitext(filepath)[1], 'text/plain')))
+                            )
+
+                            requests.post(url, headers=headers, files=files)
     
     def migrate(self, page_whitelist: List[str]=None, page_blacklist: List[str] = None):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
@@ -431,7 +506,10 @@ def main():
     if IMPORT_LDAP == "true":
         migration.import_users_from_ldap()
     migration.import_users_from_wiki()
+    if MEDIAWIKI_ASSETS:
+        migration.migrate_assets()
     migration.migrate()
+    
 
 if __name__ == '__main__':
     main()
