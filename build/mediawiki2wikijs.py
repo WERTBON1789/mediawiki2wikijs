@@ -194,20 +194,20 @@ class MediawikiMigration:
         
         asset_folder_id = None
         
-        for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]))["assets"]["folders"]:
-            if folder["name"] == ASSET_FOLDER:
+        for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]), 0)["assets"]["folders"]:
+            if folder["slug"] == ASSET_FOLDER:
                 asset_folder_id = folder["id"]
         
         if asset_folder_id is None:
             self.assets_client.createFolder(DefaultResponseOutput({"responseResult": ["errorCode"]}), 0, "assets", "Assets")
         
-        for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]))["assets"]["folders"]:
-            if folder["name"] == ASSET_FOLDER:
+        for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]), 0)["assets"]["folders"]:
+            if folder["slug"] == ASSET_FOLDER:
                 asset_folder_id = folder["id"]
         
         self._api_client.send_request("mutation{site{updateConfig(uploadMaxFileSize:104857600){responseResult{errorCode}}}}") # Setting the file upload size limit to 100 mb
         
-        for base,dirs,files in os.walk("/tmp/images"):
+        for base,dirs,files in os.walk("/tmp/assets"):
             if files:
                 if base.find("deleted") == -1 and base.find("archive") == -1:
                     for filename in files:
