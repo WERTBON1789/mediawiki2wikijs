@@ -226,7 +226,7 @@ class MediawikiMigration:
         
         page_data: Dict[str, PageCollection] = {}
         
-        with open("/username_mapping.json", "r") as f:
+        with open("./username_mapping.json", "r") as f:
             newname_dict: Dict[str, Any] = json.loads(f.read())
         
         logger.info("Contructing the page_data dict")
@@ -471,7 +471,7 @@ class MediawikiMigration:
         
         newname_dict = None
         
-        with open("/username_mapping.json", "r") as f:
+        with open("./username_mapping.json", "r") as f:
             newname_dict: Dict[str, Any] = json.loads(f.read())
         
         wiki_users = []
