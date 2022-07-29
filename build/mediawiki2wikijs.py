@@ -127,7 +127,7 @@ class MediawikiMigration:
         
         ssh.load_system_host_keys()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(self.hostname, self.ssh_port, self.ssh_user, self.ssh_passwd)
+        ssh.connect(self.mediawiki_host, self.ssh_port, self.ssh_user, self.ssh_passwd)
         sftp = ssh.open_sftp()
         
         stdin,stdout,stderr = ssh.exec_command("php /var/www/html/wiki/maintenance/dumpBackup.php --full > /tmp/dump.xml")
