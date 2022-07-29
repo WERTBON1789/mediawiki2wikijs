@@ -194,6 +194,9 @@ class MediawikiMigration:
         
         asset_folder_id = None
         
+        self.download_wiki_images(WIKI_IMG_LOCATION)
+        self.unpack_wiki_images(WIKI_IMG_LOCATION)
+        
         for folder in self.assets_client.folders(AssetFolderOutput(["id", "slug"]), 0)["assets"]["folders"]:
             if folder["slug"] == ASSET_FOLDER:
                 asset_folder_id = folder["id"]
