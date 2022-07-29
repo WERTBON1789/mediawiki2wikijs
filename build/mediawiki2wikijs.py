@@ -83,8 +83,9 @@ class PageCollection:
     def __getitem__(self, item: int):
         return self.metadata_list[item]
 
-    def __delitem__(self, item: int):
-        del self.metadata_list[item]
+    def __setitem__(self, index: int, value):
+        self.metadata_list[index] = value
+
 
 class AuthenticationUserErrors(Enum):
     AuthGenericError = 1001
@@ -201,7 +202,7 @@ class MediawikiMigration:
                     entry.md_content = markdown_content
                 else:
                     logger.error(f"Failed to convert {path} version {index}")
-                    del page_data[path][index]
+                    data[index] = None
                     continue
                 if page_id != -1:
                     result = self.pages_api.update(PageResponseOutput({
@@ -230,6 +231,8 @@ class MediawikiMigration:
                     )
                     page_id = result["pages"]["create"]["page"]["id"]
                     logger.info(f"Created {path}.")
+            
+            data = list(filter(None, data))
             
             logger.info(f"Changing dates of page {path}...")
             self.change_page_dates(page_id, data)
