@@ -23,3 +23,5 @@ services:
       - LDAP_ADMIN_PASSWD=${LDAP_ADMIN_PASSWD}
       - LDAP_USERS_DN=${LDAP_USERS_DN}
       - LDAP_FILTER=${LDAP_FILTER}
+    volumes:
+      - "./username_mapping.json:/username_mapping.json:ro"
