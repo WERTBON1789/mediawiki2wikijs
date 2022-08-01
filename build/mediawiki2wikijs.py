@@ -426,7 +426,7 @@ class MediawikiMigration:
                 logger.warning(f"User {new_name} already exists on wikijs!")
             else:
                 logger.info(f"Creating user {new_name}")
-                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name.lower().replace(' ', '_')}@example.com", new_name, "local", passwordRaw=uuid4())
+                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name.lower().replace(' ', '_')}@example.com", new_name, "local", passwordRaw=str(uuid4()))
                 error_code = result["users"]["create"]["responseResult"]["errorCode"]
                 if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.AuthAccountAlreadyExists:
                     logger.warning(f"There already is an account using this email: {new_name.lower().replace(' ', '_')}@example.com")
