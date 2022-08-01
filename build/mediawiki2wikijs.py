@@ -127,6 +127,7 @@ class MediawikiMigration:
         self.users_client = UsersApi(self._api_client)
         self.assets_client = AssetsApi(self._api_client)
         self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST.split('://')[-1]} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
+        self.page_dump: List[DumpEntry] = None
     
     def download_wiki_dump(self, localpath: str):
         ssh = paramiko.SSHClient()
@@ -144,12 +145,16 @@ class MediawikiMigration:
         sftp.get("/tmp/dump.xml", localpath)
     
     def read_dump(self, dump_file: str, sort_pages: bool=False) -> List[DumpEntry]:
+        if not self.page_dump is None:
+            return self.page_dump
         dump = LocalFileDump(dump_file)
         pages: Generator[DumpEntry, None, None] = DumpReader().read(dump)
         if sort_pages:
-            return sorted(pages, key=lambda x: x.timestamp)
+            self.page_dump = sorted(pages, key=lambda x: x.timestamp)
+            return self.page_dump
         else:
-            return list(pages)
+            self.page_dump = list(pages)
+            return self.page_dump
     
     def download_wiki_images(self, localpath: str):
         ssh = paramiko.SSHClient()
