@@ -67,7 +67,6 @@ class PageCollection:
         self.metadata_list.append(PageMetaData(content, contributor, timestamp))
         if self.last_updated < timestamp:
             self.last_updated = timestamp
-        self.counter += 1
     
     def add_markdown_to_index(self, md_content: str, index: int):
         self[index].md_content = md_content
