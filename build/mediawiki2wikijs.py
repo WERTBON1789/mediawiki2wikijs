@@ -491,13 +491,13 @@ class MediawikiMigration:
                 logger.warning(f"User {new_name} already exists on wikijs!")
             else:
                 logger.info(f"Creating user {new_name}")
-                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name}@example.com", new_name, "local", "{SHA}cRDtpNCeBiql5KOQsKVyrA0sAiA=")
+                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{i}@example.com", new_name, "local", mustChangePassword=True)
                 error_code = result["users"]["create"]["responseResult"]["errorCode"]
                 if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.AuthAccountAlreadyExists:
-                    logger.warning(f"There already is an account using this email: {f'{new_name}@example.com'}")
+                    logger.warning(f"There already is an account using this email: {f'{i}@example.com'}")
                     continue
                 if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.InputInvalid:
-                    logger.warning(f"The email of the LDAP user {new_name} is invalid!")
+                    logger.warning(f"The email of the user {new_name} is invalid: {f'{i}@example.com'}")
                     continue
                 
                 for user in self.users_client.list(UserMinimalOutput(["id", "name"]))["users"]["list"]:
