@@ -464,9 +464,9 @@ class MediawikiMigration:
             logger.info(f"Creating user {str(entry['cn'])}.")
             result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode", "message"]}), str(entry["mail"]), str(entry["cn"]), ldap_strat_key, str(entry["userPassword"]))
             error_code = result["users"]["create"]["responseResult"]["errorCode"]
-            if error_code == AuthenticationUserErrors.AuthAccountAlreadyExists:
+            if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.AuthAccountAlreadyExists:
                 logger.warning(f"There already is an account using this email: {str(entry['mail'])}")
-            if error_code == AuthenticationUserErrors.InputInvalid:
+            if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.InputInvalid:
                 logger.warning(f"The email of the LDAP user {str(entry['cn'])} is invalid!")
     
     def import_users_from_wiki(self):
@@ -493,10 +493,10 @@ class MediawikiMigration:
                 logger.info(f"Creating user {new_name}")
                 result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name}@example.com", new_name, "local", "{SHA}cRDtpNCeBiql5KOQsKVyrA0sAiA=")
                 error_code = result["users"]["create"]["responseResult"]["errorCode"]
-                if error_code == AuthenticationUserErrors.AuthAccountAlreadyExists:
+                if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.AuthAccountAlreadyExists:
                     logger.warning(f"There already is an account using this email: {f'{new_name}@example.com'}")
                     continue
-                if error_code == AuthenticationUserErrors.InputInvalid:
+                if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.InputInvalid:
                     logger.warning(f"The email of the LDAP user {new_name} is invalid!")
                     continue
                 
