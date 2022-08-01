@@ -16,6 +16,7 @@ from mediawiki_dump.dumps import LocalFileDump
 from mediawiki_dump.reader import DumpReader
 from mediawiki_dump.entry import DumpEntry
 from wikijspy import *
+from wikijspy_ext import ApiExtensions
 
 WIKIJS_HOST              = os.environ.get("WIKIJS_HOST")
 WIKIJS_TOKEN             = os.environ.get("WIKIJS_TOKEN")
@@ -104,6 +105,7 @@ class MediawikiMigration:
         self.auth_client = AuthenticationApi(self._api_client)
         self.users_client = UsersApi(self._api_client)
         self.assets_client = AssetsApi(self._api_client)
+        self.ext_utils = ApiExtensions(self._api_client)
         self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST.split('://')[-1]} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
         self.page_dump: List[DumpEntry] = None
     
@@ -155,19 +157,6 @@ class MediawikiMigration:
             call(args=["tar", "-xf", f"{localpath}", "-C", "/tmp/assets"])
             
     def migrate_assets(self):
-        file_ext_dict = {
-            ".png" : "image/png",
-            ".jpg" : "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif" : "image/gif",
-            ".pdf" : "application/pdf",
-            ".log" : "text/x-log",
-            ".bin" : "application/octet-stream",
-            ".txt" : "text/plain",
-            ".zip" : "application/zip",
-            ".diff": "text/x-patch",
-            ".ico" : "image/x-icon"
-        }
         
         url = f'{WIKIJS_HOST}/u'
         
@@ -198,14 +187,7 @@ class MediawikiMigration:
                 if base.find("deleted") == -1 and base.find("archive") == -1:
                     for filename in files:
                         filepath = base+"/"+filename
-                        with open(filepath, 'rb') as f:
-                            
-                            files = (
-                                ('mediaUpload', (None, '{"folderId":'f'{asset_folder_id}''}')),
-                                ('mediaUpload', (os.path.basename(filepath), f, file_ext_dict.get(os.path.splitext(filepath)[1], 'text/plain')))
-                            )
-
-                            requests.post(url, headers=headers, files=files)
+                        self.ext_utils.upload_asset(filepath, asset_folder_id)
     
     def migrate(self, page_whitelist: List[str]=None, page_blacklist: List[str] = None):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
@@ -422,36 +404,6 @@ class MediawikiMigration:
             cur.execute(f'UPDATE pages SET "creatorId" = \'{user_id_dict[collection[0].contributor]}\', "authorId" = \'{user_id_dict[collection[-1].contributor]}\' WHERE id={page_id}')
         self.sql_client.commit()
     
-    def import_users_from_ldap(self):
-        logger.warning("Importing all LDAP users...")
-        ldap = ldap3.Server(LDAP_HOST)
-        ldap_connection = ldap3.Connection(ldap, LDAP_ADMIN_DN, LDAP_ADMIN_PASSWD)
-        ldap_connection.bind()
-        
-        ldap_connection.search(LDAP_USERS_DN, LDAP_FILTER, attributes=['cn', 'mail', 'userPassword'])
-        
-        strats = self._api_client.send_request("query{authentication{activeStrategies(enabledOnly: true){displayName,key,strategy{key}}}}")
-        
-        ldap_strat_key = None
-        
-        for strat in strats["authentication"]["activeStrategies"]:
-            if strat["strategy"]["key"] == "ldap":
-                logger.info(f"Using Strategy {strat['displayName']}")
-                ldap_strat_key = strat["key"]
-        
-        if ldap_strat_key is None:
-            logger.error("Couldn't find a valid Authentication Strategy!")
-            return
-
-        for entry in ldap_connection.entries:
-            logger.info(f"Creating user {str(entry['cn'])}.")
-            result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode", "message"]}), str(entry["mail"]), str(entry["cn"]), ldap_strat_key, str(entry["userPassword"]))
-            error_code = result["users"]["create"]["responseResult"]["errorCode"]
-            if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.AuthAccountAlreadyExists:
-                logger.warning(f"There already is an account using this email: {str(entry['mail'])}")
-            if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.InputInvalid:
-                logger.warning(f"The email of the LDAP user {str(entry['cn'])} is invalid!")
-    
     def import_users_from_wiki(self):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
         
@@ -490,7 +442,7 @@ class MediawikiMigration:
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
     if IMPORT_LDAP == "true":
-        migration.import_users_from_ldap()
+        migration.ext_utils.import_users_from_ldap(LDAP_HOST, LDAP_ADMIN_DN, LDAP_ADMIN_PASSWD, LDAP_USERS_DN, LDAP_FILTER)
     migration.import_users_from_wiki()
     if MEDIAWIKI_ASSETS:
         migration.migrate_assets()
