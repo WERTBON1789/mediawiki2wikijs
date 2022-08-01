@@ -41,7 +41,7 @@ WIKI_IMG_LOCATION        = "/data/wiki-img.tar.gz"
 ASSET_FOLDER             = "assets"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename=MIGRATION_LOG, level=logging.INFO, filemode='a')
+logging.basicConfig(level=logging.INFO, handlers=[logging.FileHandler(MIGRATION_LOG), logging.StreamHandler(sys.stdout)])
 logging.getLogger("gql").setLevel(logging.WARNING)
 
 @dataclass
