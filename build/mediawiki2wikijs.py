@@ -7,8 +7,6 @@ from uuid import uuid4
 import paramiko
 import logging
 import psycopg as psql
-import ldap3
-import requests
 from dataclasses import astuple, dataclass
 from subprocess import PIPE, Popen, call
 from typing import Generator, List
