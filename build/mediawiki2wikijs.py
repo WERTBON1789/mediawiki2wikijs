@@ -440,6 +440,8 @@ class MediawikiMigration:
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER, MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST, WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
+    if not os.path.exists(WIKI_XML_LOCATION):
+        migration.download_wiki_dump(WIKI_XML_LOCATION)
     if IMPORT_LDAP == "true":
         migration.ext_utils.import_users_from_ldap(LDAP_HOST, LDAP_ADMIN_DN, LDAP_ADMIN_PASSWD, LDAP_USERS_DN, LDAP_FILTER)
     migration.import_users_from_wiki()
