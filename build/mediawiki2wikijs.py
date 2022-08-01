@@ -92,6 +92,7 @@ class PageCollection:
 
 
 class AuthenticationUserErrors(Enum):
+    Nothing = 0
     AuthGenericError = 1001
     AuthLoginFailed = 1002
     AuthProviderInvalid = 1003
