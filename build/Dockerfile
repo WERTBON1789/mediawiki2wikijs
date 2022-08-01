@@ -19,6 +19,7 @@ RUN apk update\
         psycopg~=3.0\
         ldap3~=2.9\
         wikijspy\
+        wikijspy-ext\
     && wget https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-linux-amd64.tar.gz\
     && tar -xf /pandoc-2.18-linux-amd64.tar.gz pandoc-2.18/bin/pandoc && mv /pandoc-2.18/bin/pandoc /usr/bin\
     && apk del wget\
