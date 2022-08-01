@@ -61,7 +61,6 @@ class PageCollection:
         self.creation_date: str = creation_date
         self.last_updated: str = ""
         self.metadata_list: List[PageMetaData] = []
-        self.counter: int = 0
         
     def add_entry(self, content: str, contributor: str, timestamp: str):
         self.metadata_list.append(PageMetaData(content, contributor, timestamp))
