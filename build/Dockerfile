@@ -35,4 +35,6 @@ COPY ./mediawiki2wikijs.py /mediawiki2wikijs.py
 
 RUN chmod 755 /mediawiki2wikijs.py
 
+RUN mkdir /data
+
 CMD [ "tail", "-f", "/dev/null" ]

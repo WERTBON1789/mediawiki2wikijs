@@ -2,7 +2,7 @@ version: '3'
 
 services:
   migration:
-    image: "wertbon1789/wikijs-migration:0.1.4"
+    image: "wertbon1789/wikijs-migration:0.1.5"
     container_name: wikijs-migration
     build:
       context: ./build
@@ -24,4 +24,8 @@ services:
       - LDAP_USERS_DN=${LDAP_USERS_DN}
       - LDAP_FILTER=${LDAP_FILTER}
     volumes:
+      - wiki_migration_data:/data:rw
       - "./username_mapping.json:/username_mapping.json:ro"
+
+volumes:
+  wiki_migration_data:
