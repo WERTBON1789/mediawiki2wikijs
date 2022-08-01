@@ -3,6 +3,7 @@ import json
 import sys
 import os
 import re
+from uuid import uuid4
 import paramiko
 import logging
 import psycopg as psql
@@ -497,7 +498,7 @@ class MediawikiMigration:
                 logger.warning(f"User {new_name} already exists on wikijs!")
             else:
                 logger.info(f"Creating user {new_name}")
-                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name.lower().replace(' ', '_')}@example.com", new_name, "local", passwordRaw="65fb6d7e-3d77-44fe-97b7-45865d8acc56", mustChangePassword=True)
+                result = self.users_client.create(UserResponseOutput({"responseResult": ["errorCode"], "user": ["id"]}), f"{new_name.lower().replace(' ', '_')}@example.com", new_name, "local", passwordRaw=uuid4())
                 error_code = result["users"]["create"]["responseResult"]["errorCode"]
                 if AuthenticationUserErrors(error_code) == AuthenticationUserErrors.AuthAccountAlreadyExists:
                     logger.warning(f"There already is an account using this email: {new_name.lower().replace(' ', '_')}@example.com")
