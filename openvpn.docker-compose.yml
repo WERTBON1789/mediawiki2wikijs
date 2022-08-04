@@ -23,6 +23,7 @@ services:
       - LDAP_ADMIN_PASSWD=${LDAP_ADMIN_PASSWD}
       - LDAP_USERS_DN=${LDAP_USERS_DN}
       - LDAP_FILTER=${LDAP_FILTER}
+      - USER_TIMEZONE=${USER_TIMEZONE}
     volumes:
       - wiki_migration_data:/data:rw
       - "./username_mapping.json:/username_mapping.json:ro"

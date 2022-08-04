@@ -31,6 +31,7 @@ LDAP_USERS_DN            = os.environ.get("LDAP_USERS_DN")
 LDAP_FILTER              = os.environ.get("LDAP_FILTER")
 IMPORT_LDAP              = os.environ.get("IMPORT_LDAP")
 MEDIAWIKI_ASSETS         = os.environ.get("MEDIAWIKI_ASSETS")
+USER_TIMEZONE            = os.environ.get("USER_TIMEZONE")
 
 WIKI_XML_LOCATION        = "/data/wiki.xml"
 WIKI_MD_DIR              = "/data/wiki-md"
@@ -402,6 +403,12 @@ class MediawikiMigration:
             cur.execute(f'UPDATE pages SET "creatorId" = \'{user_id_dict[collection[0].contributor]}\', "authorId" = \'{user_id_dict[collection[-1].contributor]}\' WHERE id={page_id}')
         self.sql_client.commit()
     
+    def update_timezone_of_all_users(self, timezone: str="America/New_York"):
+        user_id_list = [item["id"] for item in self.users_client.list(UserMinimalOutput(["id"]))]
+        
+        for id in user_id_list:
+            self.users_client.update(DefaultResponseOutput({"responseResult": ["errorCode"]}), id, timezone=timezone)
+    
     def import_users_from_wiki(self):
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
         
@@ -444,6 +451,7 @@ def main():
     if IMPORT_LDAP == "true":
         migration.ext_utils.import_users_from_ldap(LDAP_HOST, LDAP_ADMIN_DN, LDAP_ADMIN_PASSWD, LDAP_USERS_DN, LDAP_FILTER)
     migration.import_users_from_wiki()
+    migration.update_timezone_of_all_users(USER_TIMEZONE)
     if MEDIAWIKI_ASSETS:
         migration.migrate_assets()
     migration.migrate()
