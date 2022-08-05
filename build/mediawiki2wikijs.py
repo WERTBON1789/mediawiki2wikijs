@@ -420,7 +420,7 @@ class MediawikiMigration:
         self.sql_client.commit()
     
     def update_timezone_of_all_users(self, timezone: str="America/New_York"):
-        user_id_list = [item["id"] for item in self.users_client.list(UserMinimalOutput(["id"]))]
+        user_id_list = [item["id"] for item in self.users_client.list(UserMinimalOutput(["id"]))["users"]["list"]]
         
         for id in user_id_list:
             self.users_client.update(DefaultResponseOutput({"responseResult": ["errorCode"]}), id, timezone=timezone)
