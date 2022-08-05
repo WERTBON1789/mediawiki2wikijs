@@ -282,6 +282,14 @@ class MediawikiMigration:
             logger.info(f"Changing authors of page {path}...")
             self.change_page_authors(page_id, data)
             logger.info(f"Finished changing authors of page {path}.")
+        
+        path_id_dict = {}
+        for item in self.pages_api.list(PageListItemOutput(["path", "id"]))["pages"]["list"]:
+            path_id_dict[item["path"]] = item["id"]
+        
+        for path,data in page_data.items():
+            logger.info(f"Updating last updated timestamp for page {path}...")
+            self.change_latest_page_dates(path_id_dict[path], data)
             
 
     
@@ -379,9 +387,17 @@ class MediawikiMigration:
             for rev_id,entry in zip(rev_id_list, collection):
                 cur.execute(f'UPDATE "pageHistory" SET "versionDate" = \'{entry.timestamp}\' WHERE id={rev_id}')
             
-            cur.execute(f'UPDATE pages SET "createdAt" = \'{collection[0].timestamp}\', "updatedAt" = \'{collection[-1].timestamp}\' WHERE id={page_id}')
+            cur.execute(f'UPDATE pages SET "createdAt" = \'{collection[0].timestamp}\' WHERE id={page_id}')
         self.sql_client.commit()
     
+    def change_latest_page_dates(self, page_id: int, collection: PageCollection):
+        if page_id == -1:
+            return
+        with self.sql_client.cursor() as cur:
+            cur.execute(f'UPDATE pages SET "updatedAt" = \'{collection[-1].timestamp}\' WHERE id={page_id}')
+
+        self.sql_client.commit()
+        
     def change_page_authors(self, page_id: int, collection: PageCollection):
         if page_id == -1:
             return
