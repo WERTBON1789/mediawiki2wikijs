@@ -1,6 +1,5 @@
 FROM alpine:3.18
 
-# Install Python and all build dependencies
 RUN apk add --no-cache \ 
     python3 \
     py3-pip \
@@ -11,14 +10,11 @@ RUN pip install --no-cache-dir --break-system-packages \
     mediawiki-dump \
     psycopg[binary] \
     ldap3 \
-    wikijspy \
-    wikijspy-ext \
     paramiko
 
-COPY ./mediawiki2wikijs.py /mediawiki2wikijs.py
+COPY --chmod=755 ./mediawiki2wikijs.py /mediawiki2wikijs.py
 
-RUN chmod 755 /mediawiki2wikijs.py
-
-RUN mkdir /data
+VOLUME [ "/data" ]
 
 CMD [ "/mediawiki2wikijs.py" ]
+
