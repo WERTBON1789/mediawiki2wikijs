@@ -488,7 +488,7 @@ class MediawikiMigration:
                 logger.warning(f"User {new_name} already exists on wikijs!")
             else:
                 logger.info(f"Creating user {new_name}")
-                query = dsl_gql(DSLMutation(self._dslschema.Mutation.users.select(self._dslschema.UserMutation.create(email=f"{new_name.lower().replace(' ', '_')}@example.com",name=new_name, providerKey="local", passwordRaw=str(uuid4())).select(self._dslschema.UserResponse.responseResult.select(self._dslschema.ResponseStatus.errorCode), self._dslschema.UserResponse.user.select(self._dslschema.User.id)))))
+                query = dsl_gql(DSLMutation(self._dslschema.Mutation.users.select(self._dslschema.UserMutation.create(email=f"{new_name.lower().replace(' ', '_')}@example.com",name=new_name, providerKey="local", passwordRaw=str(uuid4()), groups=[]).select(self._dslschema.UserResponse.responseResult.select(self._dslschema.ResponseStatus.errorCode), self._dslschema.UserResponse.user.select(self._dslschema.User.id)))))
                 result = self._session.execute(query)
                 error_code = result["users"]["create"]["responseResult"]["errorCode"]
                 if error_code == 1004: # AuthAccountAlreadyExists
