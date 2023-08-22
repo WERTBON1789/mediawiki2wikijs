@@ -2,28 +2,35 @@ version: '3'
 
 services:
   migration:
-    image: "wertbon1789/wikijs-migration:0.1.7"
+    image: "wertbon1789/wikijs-migration:0.2.0"
     container_name: wikijs-migration
+    init: true
     build:
       context: ./build
       dockerfile: ./Dockerfile
     environment:
-      - WIKIJS_HOST=${WIKIJS_HOST}
-      - WIKIJS_TOKEN=${WIKIJS_TOKEN}
-      - MEDIAWIKI_SSH_HOST=${MEDIAWIKI_SSH_HOST}
-      - MEDIAWIKI_SSH_PORT=${MEDIAWIKI_SSH_PORT}
-      - MEDIAWIKI_SSH_USER=${MEDIAWIKI_SSH_USER}
-      - MEDIAWIKI_SSH_PASSWD=${MEDIAWIKI_SSH_PASSWD}
-      - MEDIAWIKI_ASSETS=${MEDIAWIKI_ASSETS}
-      - PSQL_HOST=${PSQL_HOST}
-      - PSQL_PORT=${PSQL_PORT}
-      - IMPORT_LDAP=${IMPORT_LDAP}
-      - LDAP_HOST=${LDAP_HOST}
-      - LDAP_ADMIN_DN=${LDAP_ADMIN_DN}
-      - LDAP_ADMIN_PASSWD=${LDAP_ADMIN_PASSWD}
-      - LDAP_USERS_DN=${LDAP_USERS_DN}
-      - LDAP_FILTER=${LDAP_FILTER}
-      - USER_TIMEZONE=${USER_TIMEZONE}
+      - WIKIJS_HOST=${WIKIJS_HOST:?}
+      - WIKIJS_TOKEN=${WIKIJS_TOKEN:?}
+      - MEDIAWIKI_SSH_HOST=${MEDIAWIKI_SSH_HOST:?}
+      - MEDIAWIKI_SSH_PORT=${MEDIAWIKI_SSH_PORT:?}
+      - MEDIAWIKI_SSH_USER=${MEDIAWIKI_SSH_USER:?}
+      - MEDIAWIKI_SSH_PASSWD=${MEDIAWIKI_SSH_PASSWD:?}
+      - MEDIAWIKI_ASSETS=${MEDIAWIKI_ASSETS:?}
+      - PSQL_HOST=${PSQL_HOST:?}
+      - PSQL_PORT=${PSQL_PORT:?}
+      - USER_TIMEZONE=${USER_TIMEZONE:?}
+      - IMPORT_LDAP=${IMPORT_LDAP:?}
+      - LDAP_HOST=${LDAP_HOST:?}
+      - LDAP_ADMIN_DN=${LDAP_ADMIN_DN:?}
+      - LDAP_ADMIN_PASSWD=${LDAP_ADMIN_PASSWD:?}
+      - LDAP_USER_DN=${LDAP_USER_DN:?}
+      - LDAP_USER_FILTER=${LDAP_USER_FILTER:?}
+      - LDAP_GROUP_DN=${LDAP_GROUP_DN:?}
+      - LDAP_GROUP_FILTER=${LDAP_GROUP_FILTER:?}
+      - LDAP_USER_GROUPS=${LDAP_USER_GROUPS:?}
+      - LDAP_ADMIN_GROUP=${LDAP_ADMIN_GROUP:?}
+      - LDAP_USER_GROUP_REDIRECT_URI=${LDAP_USER_GROUP_REDIRECT_URI:?}
+      - LOCALE=${LOCALE:?}
     volumes:
       - wiki_migration_data:/data:rw
       - "./username_mapping.json:/username_mapping.json:ro"
