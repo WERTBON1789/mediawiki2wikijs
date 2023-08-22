@@ -497,8 +497,8 @@ class MediawikiMigration:
                 if error_code == 1012: # InputInvalid
                     logger.warning(f"The email of the user {new_name} is invalid: {new_name.lower().replace(' ', '_')}@example.com")
                     continue
-                user_id = result['users']['create']['user']['id']
-                query = dsl_gql(DSLMutation(self._dslschema.Mutation.users.select(self._dslschema.UserMutation.deactivate(id=user_id).select(self._dslschema.DefaultResponse.repsonseResult.select(self._dslschema.ResponseStatus.secceeded)))))
+                user_id = self._session.execute(gql('query{users{search(query: "%s"){id}}}' % new_name))['users']['search'][-1]['id']
+                query = dsl_gql(DSLMutation(self._dslschema.Mutation.users.select(self._dslschema.UserMutation.deactivate(id=user_id).select(self._dslschema.DefaultResponse.responseResult.select(self._dslschema.ResponseStatus.succeeded)))))
                 self._session.execute(query)
 
     def import_ldap_users(self):
