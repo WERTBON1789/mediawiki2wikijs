@@ -357,7 +357,7 @@ class MediawikiMigration:
             regex = re.search(r"\!\[(.*)\]\((.+) \"(.+)\"\)", split_content[i])
             if regex != None:
                 split_content[i] = re.sub(r"\!\[.*\]\(.+ \".+\"\)", f"![{regex.group(1)}](/assets/{regex.group(2).lower()} \"{regex.group(3)}\")", split_content[i])
-            regex = re.search("<img src=\"(.+)\" title=\"(.+)\".*/>", split_content[i])
+            regex = re.search("<img src=\"(.+)\" title=\"(.+?)\".*/>", split_content[i])
             if regex != None:
                 split_content[i] = '<img src="/assets/%s" title="%s" alt="%s">' % (regex.group(1).lower(), regex.group(2), regex.group(2))
             
