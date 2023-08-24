@@ -15,6 +15,8 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install --break-system-packag
     gql
 
 COPY --chmod=755 ./mediawiki2wikijs.py /mediawiki2wikijs.py
+COPY --chmod=755 ./constants.py /constants.py
+COPY --chmod=755 ./query_defs.py query_defs.py
 
 VOLUME [ "/data" ]
 

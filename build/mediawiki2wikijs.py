@@ -4,7 +4,6 @@ import sys
 import os
 import re
 import ldap
-from uuid import uuid4
 import paramiko
 import logging
 import psycopg as psql
@@ -19,37 +18,9 @@ from gql import Client, gql
 from gql.dsl import DSLQuery, DSLMutation, DSLSchema, dsl_gql
 from gql.transport.requests import RequestsHTTPTransport
 import requests
-
-WIKIJS_HOST              = os.environ.get("WIKIJS_HOST")
-WIKIJS_TOKEN             = os.environ.get("WIKIJS_TOKEN")
-MEDIAWIKI_HOST           = os.environ.get("MEDIAWIKI_SSH_HOST")
-MEDIAWIKI_SSH_PORT       = os.environ.get("MEDIAWIKI_SSH_PORT")
-MEDIAWIKI_SSH_PASSWD     = os.environ.get("MEDIAWIKI_SSH_PASSWD")
-MEDIAWIKI_SSH_USER       = os.environ.get("MEDIAWIKI_SSH_USER")
-PSQL_HOST                = os.environ.get("PSQL_HOST")
-PSQL_PORT                = os.environ.get("PSQL_PORT")
-LDAP_HOST                = os.environ.get("LDAP_HOST")
-LDAP_ADMIN_DN            = os.environ.get("LDAP_ADMIN_DN")
-LDAP_ADMIN_PASSWD        = os.environ.get("LDAP_ADMIN_PASSWD")
-LDAP_USER_DN             = os.environ.get("LDAP_USER_DN")
-LDAP_USER_FILTER         = os.environ.get("LDAP_USER_FILTER")
-LDAP_GROUP_DN            = os.environ.get("LDAP_GROUP_DN")
-LDAP_GROUP_FILTER        = os.environ.get("LDAP_GROUP_FILTER")
-LDAP_USER_GROUPS         = os.environ.get("LDAP_USER_GROUPS")
-LDAP_ADMIN_GROUP         = os.environ.get("LDAP_ADMIN_GROUP")
-IMPORT_LDAP              = os.environ.get("IMPORT_LDAP")
-MEDIAWIKI_ASSETS         = os.environ.get("MEDIAWIKI_ASSETS")
-USER_TIMEZONE            = os.environ.get("USER_TIMEZONE")
-LDAP_USER_GROUP_REDIRECT_URI = os.environ.get("LDAP_USER_GROUP_REDIRECT_URI")
-LOCALE                       = os.environ.get("LOCALE")
-
-WIKI_XML_LOCATION        = "/data/wiki.xml"
-WIKI_MD_DIR              = "/data/wiki-md"
-WIKI_TXT_DIR             = "/data/wiki-txt"
-MIGRATION_LOG            = "/data/wiki-migration.log"
-ERR_PAGES_LOG            = "/data/err-pages.log"
-WIKI_IMG_LOCATION        = "/data/wiki-img.tar.gz"
-ASSET_FOLDER             = "assets"
+from constants import *
+from query_defs import *
+import pickle
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, handlers=[logging.FileHandler(MIGRATION_LOG), logging.StreamHandler(sys.stdout)])
@@ -108,7 +79,7 @@ class MediawikiMigration:
         self.ssh_port = ssh_port
         self.wikijs_host = wikijs_host
         self.wikijs_token = wikijs_token
-        self._api_client = Client(
+        client = Client (
             transport=RequestsHTTPTransport(
                 url=WIKIJS_HOST + '/graphql',
                 headers={
@@ -117,13 +88,8 @@ class MediawikiMigration:
             ),
             fetch_schema_from_transport=True,
         )
-        self._session: SyncClientSession = self._api_client.connect_sync()
-        self._dslschema = DSLSchema(self._api_client.schema)
-        #self.pages_api = PagesApi(self._api_client)
-        #self.auth_client = AuthenticationApi(self._api_client)
-        #self.users_client = UsersApi(self._api_client)
-        #self.assets_client = AssetsApi(self._api_client)
-        #self.ext_utils = ApiExtensions(self._api_client)
+        self._session = client.connect_sync()
+        self._dslschema = DSLSchema(client.schema)
         self.sql_client = psql.connect(conninfo=f"host={WIKIJS_HOST.split('://')[-1]} port=5432 dbname=wiki user=wikijs password=1234 connect_timeout=10")
         self.page_dump: List[DumpEntry] = None
     
@@ -283,13 +249,10 @@ class MediawikiMigration:
             self._session.execute(gql('mutation{localization{updateLocale(locale: "%s", autoUpdate: true, namespacing: false, namespaces: []){responseResult{errorCode}}}}' % LOCALE))
         
         for path,data in page_data.items():
-            is_published = True
-            is_private = False
             page_id = self.page_exists(path)
             if page_id != -1:
                 logger.warning(f"Page {path} already existed and will be overwritten!")
-                query = dsl_gql(DSLMutation(self._dslschema.Mutation.pages.select(self._dslschema.PageMutation.delete(id=page_id).select(self._dslschema.DefaultResponse.responseResult.select(self._dslschema.ResponseStatus.errorCode)))))
-                self._session.execute(query)
+                self._session.execute(delete_page, {'id': page_id})
                 page_id = -1
             for index,entry in enumerate(data):
                 exitcode,stdout,stderr = self.convert_content(entry.content)
@@ -311,12 +274,18 @@ class MediawikiMigration:
                 entry.md_content = self.fix_hyper_links(stdout.decode('utf-8'))
 
                 if page_id != -1:
-                    query = dsl_gql(DSLMutation(self._dslschema.Mutation.pages.select(self._dslschema.PageMutation.update(id=page_id, content=entry.md_content, isPublished=is_published, isPrivate=is_private).select(self._dslschema.PageResponse.responseResult.select(self._dslschema.ResponseStatus.errorCode)))))
-                    self._session.execute(query)
+                    self._session.execute(update_page, {'id': page_id, 'content': entry.md_content})
                     logger.info(f"Updated {path} to version {index}.")
                 else:
-                    query = dsl_gql(DSLMutation(self._dslschema.Mutation.pages.select(self._dslschema.PageMutation.create(content=entry.md_content, editor="markdown", isPrivate=is_private, isPublished=is_published, locale=LOCALE, path=path, tags=[], title=data.title, description="").select(self._dslschema.PageResponse.responseResult.select(self._dslschema.ResponseStatus.slug), self._dslschema.PageResponse.page.select(self._dslschema.Page.id)))))
-                    result = self._session.execute(query)
+                    script = ''
+                    if entry.content.startswith('#REDIRECT') or entry.content.startswith('#WEITERLEITUNG'):
+                        if not entry.content[1:].__contains__('#'):
+                            page_data[path] = None
+                            break
+                        m = re.search(r'\[.+\]\((.+) .*\)', entry.md_content)
+                        if m is not None:
+                            script = '<script>window.location.href = "{}";</script>'.format(m[1])
+                    result = self._session.execute(create_page, {'content': entry.md_content, 'path': path, 'title': data.title, 'scriptJs': script})
                     try:
                         page_id = result["pages"]["create"]["page"]["id"]
                     except:
@@ -335,6 +304,8 @@ class MediawikiMigration:
             self.change_page_authors(page_id, data)
             logger.info(f"Finished changing authors of page {path}.")
         
+        page_data = {k:v for k,v in page_data.items() if v is not None}
+
         path_id_dict = {}
         for item in self._session.execute(dsl_gql(DSLQuery(self._dslschema.Query.pages.select(self._dslschema.PageQuery.list.select(self._dslschema.PageListItem.id, self._dslschema.PageListItem.path)))))['pages']['list']:
             path_id_dict[item["path"]] = item["id"]
@@ -345,9 +316,7 @@ class MediawikiMigration:
                 self._session.execute(gql('mutation{pages{render(id: %i){responseResult{errorCode}}}}' % path_id_dict[path]))
             logger.info(f"Updating last updated timestamp for page {path}...")
             self.change_latest_page_dates(path_id_dict[path], data)
-            
 
-    
     def convert_content(self, content: str):
         p = Popen(args=['pandoc', '-f', 'mediawiki', '-t', 'gfm', '-o', '/dev/stdout', '--wrap=none'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
         stdout,stderr = p.communicate(input=content.encode('utf-8'))
@@ -369,7 +338,9 @@ class MediawikiMigration:
                 continue
             regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", line)
             if regex != None:
-                split_content[index] = re.sub(r"\[.+\]\(.+ \"wikilink\"\)", '[{}](/{} "{}")'.format(regex.group(1).replace(':', '/'), regex.group(2).replace(':', '/'), regex.group(1).replace(':', '/').replace('"', r'\"').replace('\'', r'\'')), line)
+                tmp = regex.group(2).replace(':', '/').split('#')
+                tmp[-1] = tmp[-1].lower()
+                split_content[index] = re.sub(r"\[.+\]\(.+ \"wikilink\"\)", '[{}](/{} "{}")'.format(regex.group(1).replace(':', '/'), '#'.join(tmp), regex.group(1).replace(':', '/').replace('"', r'\"').replace('\'', r'\'')), line)
                 continue
             regex = re.search("<a href=\"(.+)\".*>(.+)</a>", line)
             if regex != None:
@@ -430,13 +401,12 @@ class MediawikiMigration:
         return content
     
     def page_exists(self, path: str) -> int:
-        query = dsl_gql(DSLQuery(self._dslschema.Query.pages.select(self._dslschema.PageQuery.search(query=path).select(self._dslschema.PageSearchResponse.results.select(self._dslschema.PageSearchResult.id, self._dslschema.PageSearchResult.path)))))
-        page_result = self._session.execute(query)['pages']['search']['results']
+        page_result = self._session.execute(search_page, {'path': path})['pages']['search']['results']
 
         for obj in page_result:
                 id, l_path = obj.values()
                 if l_path == path:
-                    return id
+                    return int(id)
         return -1
 
     def change_page_dates(self, page_id: int, collection: List[PageMetaData]):
@@ -510,8 +480,7 @@ class MediawikiMigration:
                 logger.warning(f"User {new_name} already exists on wikijs!")
             else:
                 logger.info(f"Creating user {new_name}")
-                query = dsl_gql(DSLMutation(self._dslschema.Mutation.users.select(self._dslschema.UserMutation.create(email=f"{new_name.lower().replace(' ', '_')}@example.com",name=new_name, providerKey="local", passwordRaw=str(uuid4()), groups=[]).select(self._dslschema.UserResponse.responseResult.select(self._dslschema.ResponseStatus.errorCode), self._dslschema.UserResponse.user.select(self._dslschema.User.id)))))
-                result = self._session.execute(query)
+                result = self._session.execute(create_user,{'email': f"{new_name.lower().replace(' ', '_')}@example.com",'name':new_name, 'providerKey':"local"})
                 error_code = result["users"]["create"]["responseResult"]["errorCode"]
                 if error_code == 1004: # AuthAccountAlreadyExists
                     logger.warning(f"There already is an account using this email: {new_name.lower().replace(' ', '_')}@example.com")
@@ -544,7 +513,7 @@ class MediawikiMigration:
 
         for _,data in users:
             logger.info(f'Creating user {data["cn"][0].decode()}.')
-            result = self._session.execute(dsl_gql(DSLMutation(self._dslschema.Mutation.users.select(self._dslschema.UserMutation.create(groups=[], email=data['mail'][0].decode(), name=data['cn'][0].decode(), providerKey=ldap_strat_key, passwordRaw=data['userPassword'][0].decode()).select(self._dslschema.UserResponse.responseResult.select(self._dslschema.ResponseStatus.errorCode))))))
+            result = self._session.execute(create_user, {'email': data['mail'][0].decode(), 'name': data['cn'][0].decode(), 'providerKey': ldap_strat_key, 'passwordRaw': data['userPassword'][0].decode()})
 
             error_code = result["users"]["create"]["responseResult"]["errorCode"]
             if error_code == 1004: # AuthAccountAlreadyExists
