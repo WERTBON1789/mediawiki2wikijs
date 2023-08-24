@@ -145,13 +145,22 @@ class MediawikiMigration:
     def read_dump(self, dump_file: str, sort_pages: bool=False) -> List[DumpEntry]:
         if not self.page_dump is None:
             return self.page_dump
+        if os.path.exists(DUMP_OBJ):
+            logger.info('Pickled object is present. loading page dump...')
+            with open(DUMP_OBJ, 'rb') as f:
+                self.page_dump = pickle.load(f)
+                return self.page_dump
         dump = LocalFileDump(dump_file)
         pages: Generator[DumpEntry, None, None] = DumpReader().read(dump)
         if sort_pages:
             self.page_dump = sorted(pages, key=lambda x: x.timestamp)
+            with open(DUMP_OBJ, 'wb') as f:
+                pickle.dump(self.page_dump, f, pickle.HIGHEST_PROTOCOL)
             return self.page_dump
         else:
             self.page_dump = list(pages)
+            with open(DUMP_OBJ, 'wb') as f:
+                pickle.dump(self.page_dump, f, pickle.HIGHEST_PROTOCOL)
             return self.page_dump
     
     def download_wiki_images(self, localpath: str):
@@ -214,11 +223,16 @@ class MediawikiMigration:
                 asset_folder_id = folder["id"]
         
         self._session.execute(gql("mutation{site{updateConfig(uploadMaxFileSize:104857600){responseResult{errorCode}}}}")) # Setting the file upload size limit to 100 mb
+
+        present_files = [filename['filename'] for filename in self._session.execute(gql('query{assets{list(folderId: 1, kind: ALL){filename}}}'))['assets']['list']]
         
         for base,_,files in os.walk("/tmp/assets"):
             if files:
                 if base.find("deleted") == -1 and base.find("archive") == -1:
                     for filename in files:
+                        if filename.lower() in present_files:
+                            logger.info(f'File {filename} already present.')
+                            continue
                         filepath = base+"/"+filename
                         with open(filepath, 'rb') as f:
                             files = (
@@ -310,9 +324,10 @@ class MediawikiMigration:
                     logger.info(f"Created {path}.")
             
             data = list(filter(None, data))
-
-            logger.info(f"Rendering page {path}...")
-            self._session.execute(gql('mutation{pages{render(id: %i){responseResult{errorCode}}}}' % page_id))
+            
+            if page_whitelist:
+                logger.info(f"Rendering page {path}...")
+                self._session.execute(gql('mutation{pages{render(id: %i){responseResult{errorCode}}}}' % page_id))
             logger.info(f"Changing dates of page {path}...")
             self.change_page_dates(page_id, data)
             logger.info(f"Finished changing dates of page {path}.")
@@ -325,6 +340,9 @@ class MediawikiMigration:
             path_id_dict[item["path"]] = item["id"]
         
         for path,data in page_data.items():
+            if not page_whitelist:
+                logger.info(f'Rerendering page {path}...')
+                self._session.execute(gql('mutation{pages{render(id: %i){responseResult{errorCode}}}}' % path_id_dict[path]))
             logger.info(f"Updating last updated timestamp for page {path}...")
             self.change_latest_page_dates(path_id_dict[path], data)
             
@@ -344,22 +362,26 @@ class MediawikiMigration:
     def fix_hyper_links(self, content: str):
         split_content = content.splitlines()
     
-        for i in range(len(split_content)):
-            regex = re.search(r"\[(.+)\]\(Media:(.+) \"wikilink\"\)", split_content[i])
+        for index,line in enumerate(split_content):
+            regex = re.search(r"\[(.+)\]\(Media:(.+) \"wikilink\"\)", line)
             if regex != None:
-                split_content[i] = re.sub(r"\[.+\]\(Media:.+ \"wikilink\"\)", f"[{regex.group(1).replace(chr(34), '')}](/assets/{regex.group(2).lower()} \"{regex.group(1).replace(chr(34), '')}\")", split_content[i])
-            regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", split_content[i])
+                split_content[index] = re.sub(r"\[.+\]\(Media:.+ \"wikilink\"\)", '[{}](/assets/{} "{}")'.format(regex.group(1), regex.group(2).lower(), regex.group(1).replace(chr(34), '')), line)
+                continue
+            regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", line)
             if regex != None:
-                split_content[i] = re.sub(r"\[.+\]\(.+ \"wikilink\"\)", f"[{regex.group(1).replace(':', '/').replace(chr(34), '').replace(chr(39), '')}](/{regex.group(2).replace(':', '/')} \"{regex.group(1).replace(':', '/').replace(chr(34), '').replace(chr(39), '')}\")", split_content[i])
-            regex = re.search("<a href=\"(.+)\" title=\"(.+)\">(.+)</a>", split_content[i])
+                split_content[index] = re.sub(r"\[.+\]\(.+ \"wikilink\"\)", '[{}](/{} "{}")'.format(regex.group(1).replace(':', '/'), regex.group(2).replace(':', '/'), regex.group(1).replace(':', '/').replace('"', r'\"').replace('\'', r'\'')), line)
+                continue
+            regex = re.search("<a href=\"(.+)\".*>(.+)</a>", line)
             if regex != None:
-                split_content[i] = re.sub("<a href=\".+\" title=\".+\">.+</a>", f"<a href=\"/{regex.group(1).replace(':', '/')}\" title=\"{regex.group(3)}\">{regex.group(3)}</a>", split_content[i])
-            regex = re.search(r"\!\[(.*)\]\((.+) \"(.+)\"\)", split_content[i])
+                split_content[index] = re.sub("<a href=\".+?\" title=\".+?\">.+?</a>", '<a href="/{0}" title="{1}">{1}</a>'.format(regex.group(1).replace(':', '/'), regex.group(2)), line)
+                continue
+            regex = re.search(r"\!\[(.*)\]\((.+) \"(.+)\"\)", line)
             if regex != None:
-                split_content[i] = re.sub(r"\!\[.*\]\(.+ \".+\"\)", f"![{regex.group(1)}](/assets/{regex.group(2).lower()} \"{regex.group(3)}\")", split_content[i])
-            regex = re.search("<img src=\"(.+)\" title=\"(.+?)\".*/>", split_content[i])
+                split_content[index] = re.sub(r"\!\[.*\]\(.+ \".+\"\)", '![{}](/assets/{} "{}")'.format(regex.group(1), regex.group(2).lower(), regex.group(3).replace('"', r'\"').replace('\'', r'\'')), line)
+                continue
+            regex = re.search(r"<img src=\"(.+)\" title=\"(.+?)\"(.*?)/>", line)
             if regex != None:
-                split_content[i] = '<img src="/assets/%s" title="%s" alt="%s">' % (regex.group(1).lower(), regex.group(2), regex.group(2))
+                split_content[index] = re.sub(r"<img src=\".+\" title=\".+?\".*?/>", '<img src="/assets/{0}" title="{1}" {2} />'.format(regex.group(1).lower(), regex.group(2), regex.group(3)), line)
             
         content = '\n'.join(split_content)
 
