@@ -629,13 +629,9 @@ class MediawikiMigration:
         page_dump = self.read_dump(WIKI_XML_LOCATION, sort_pages=True)
 
         with open("./username_mapping.json", "r") as f:
-            newname_dict: Dict[str, Any] = json.loads(f.read())
+            newname_dict: Dict[str, Any] = json.load(f)
 
-        wiki_users = []
-
-        for page in page_dump:
-            if not page.contributor in wiki_users:
-                wiki_users.append(page.contributor)
+        wiki_users = set([page.contributor for page in page_dump])
 
         wikijs_users = [
             user["name"] for user in self._session.execute(
@@ -648,7 +644,13 @@ class MediawikiMigration:
         ]
 
         for i in wiki_users:
-            new_name = newname_dict.get(i, i)
+            tmp = newname_dict.get(i, i)
+            email = None
+            if type(tmp) == str:
+                new_name = tmp
+            elif type(tmp) == dict:
+                email = tmp.get('email')
+                new_name = tmp.get('name', i)
             if new_name in wikijs_users:
                 logger.warning(f"User {new_name} already exists on wikijs!")
             else:
@@ -656,9 +658,12 @@ class MediawikiMigration:
                 result = self._session.execute(
                     create_user, {
                         'email':
-                        f"{new_name.lower().replace(' ', '_')}@example.com",
-                        'name': new_name,
-                        'providerKey': "local"
+                        f"{new_name.lower().replace(' ', '_')}@example.com"
+                        if email is None else email,
+                        'name':
+                        new_name,
+                        'providerKey':
+                        "local"
                     })
                 error_code = result["users"]["create"]["responseResult"][
                     "errorCode"]
