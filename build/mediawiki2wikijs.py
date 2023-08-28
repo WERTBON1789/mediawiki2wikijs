@@ -346,8 +346,11 @@ class MediawikiMigration:
                             '#REDIRECT') or entry.content.startswith(
                                 '#WEITERLEITUNG'):
                         if not entry.content[1:].__contains__('#'):
-                            page_data[path] = None
-                            break
+                            data[index] = None
+                            logger.info(
+                                f'Page {path}, version {index} is a hard link to another Page, skipping.'
+                            )
+                            continue
                         m = re.search(r'\[.+\]\((.+) .*\)', entry.md_content)
                         if m is not None:
                             script = '<script>window.location.href = "{}";</script>'.format(
@@ -435,10 +438,12 @@ class MediawikiMigration:
             regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", line)
             if regex != None:
                 tmp = regex.group(2).replace(':', '/').split('#')
-                tmp[-1] = tmp[-1].lower()
+                if len(tmp) > 1:
+                    tmp[-1] = tmp[-1].lower()
+                tmp = '#'.join(tmp)
                 split_content[index] = re.sub(
                     r"\[.+\]\(.+ \"wikilink\"\)", '[{}](/{} "{}")'.format(
-                        regex.group(1).replace(':', '/'), '#'.join(tmp),
+                        regex.group(1).replace(':', '/'), tmp,
                         regex.group(1).replace(':', '/').replace(
                             '"', r'\"').replace('\'', r'\'')), line)
                 continue
