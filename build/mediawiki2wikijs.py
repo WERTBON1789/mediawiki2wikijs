@@ -266,7 +266,7 @@ class MediawikiMigration:
         page_data: Dict[str, PageCollection] = {}
 
         with open("./username_mapping.json", "r") as f:
-            newname_dict: Dict[str, Any] = json.loads(f.read())
+            newname_dict: Dict[str, Any] = json.load(f)
 
         logger.info("Contructing the page_data dict")
         for page in page_dump:
@@ -289,10 +289,14 @@ class MediawikiMigration:
             if not page_path in page_data:
                 page_data[page_path] = PageCollection(page_title,
                                                       page.timestamp)
-            page_data[page_path].add_entry(
-                page.content,
-                newname_dict.get(page.contributor, page.contributor),
-                page.timestamp)
+            tmp = newname_dict.get(page.contributor, page.contributor)
+            if type(tmp) == str:
+                new_name = tmp
+            else:
+                new_name = tmp.get('name', page.contributor)
+
+            page_data[page_path].add_entry(page.content, new_name,
+                                           page.timestamp)
         logger.info("Finished construction of the page_data dict")
 
         if LOCALE != 'en':
@@ -332,6 +336,21 @@ class MediawikiMigration:
                     data[index] = None
                     continue
 
+                script = ''
+                if entry.content.startswith(
+                        '#REDIRECT') or entry.content.startswith(
+                            '#WEITERLEITUNG'):
+                    if not entry.content[1:].__contains__('#'):
+                        data[index] = None
+                        logger.info(
+                            f'Page {path}, version {index} is a hard link to another Page, skipping.'
+                        )
+                        continue
+                    m = re.search(r'\[.+\]\((.+) .*\)', entry.md_content)
+                    if m is not None:
+                        script = '<script>window.location.href = "{}";</script>'.format(
+                            m[1])
+
                 entry.md_content = self.fix_hyper_links(stdout.decode('utf-8'))
 
                 if page_id != -1:
@@ -341,20 +360,6 @@ class MediawikiMigration:
                     })
                     logger.info(f"Updated {path} to version {index}.")
                 else:
-                    script = ''
-                    if entry.content.startswith(
-                            '#REDIRECT') or entry.content.startswith(
-                                '#WEITERLEITUNG'):
-                        if not entry.content[1:].__contains__('#'):
-                            data[index] = None
-                            logger.info(
-                                f'Page {path}, version {index} is a hard link to another Page, skipping.'
-                            )
-                            continue
-                        m = re.search(r'\[.+\]\((.+) .*\)', entry.md_content)
-                        if m is not None:
-                            script = '<script>window.location.href = "{}";</script>'.format(
-                                m[1])
                     result = self._session.execute(
                         create_page, {
                             'content': entry.md_content,
@@ -571,19 +576,18 @@ class MediawikiMigration:
         global user_id_dict
 
         if 'user_id_dict' not in globals():
-            user_id_dict = {}
-
             query = dsl_gql(
                 DSLQuery(
                     self._dslschema.Query.users.select(
                         self._dslschema.UserQuery.list.select(
-                            self._dslschema.UserMinimal.id,
-                            self._dslschema.UserMinimal.name))))
-            user_id_list = self._session.execute(query)["users"]["list"]
+                            self._dslschema.UserMinimal.name,
+                            self._dslschema.UserMinimal.id))))
+            user_id_list = [
+                user.values()
+                for user in self._session.execute(query)["users"]["list"]
+            ]
 
-            for user in user_id_list:
-                if not user["name"] in user_id_dict:
-                    user_id_dict[user["name"]] = user["id"]
+            user_id_dict = dict(user_id_list)
 
         with self.sql_client.cursor() as cur:
             rev_id_list: List[int] = [
