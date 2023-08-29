@@ -78,6 +78,9 @@ class PageCollection:
     def __setitem__(self, index: int, value):
         self.metadata_list[index] = value
 
+    def __bool__(self):
+        return bool(self.metadata_list)
+
 
 class MediawikiMigration:
 
@@ -375,6 +378,7 @@ class MediawikiMigration:
                     logger.info(f"Created {path}.")
 
             data = list(filter(None, data))
+            page_data[path] = data
 
             if page_whitelist:
                 logger.info(f"Rendering page {path}...")
@@ -388,7 +392,7 @@ class MediawikiMigration:
             self.change_page_authors(page_id, data)
             logger.info(f"Finished changing authors of page {path}.")
 
-        page_data = {k: v for k, v in page_data.items() if v is not None}
+        page_data = {k: v for k, v in page_data.items() if v}
 
         path_id_dict = {}
         for item in self._session.execute(
