@@ -339,6 +339,8 @@ class MediawikiMigration:
                     data[index] = None
                     continue
 
+                entry.md_content = self.fix_hyper_links(stdout.decode('utf-8'))
+
                 script = ''
                 if entry.content.startswith(
                         '#REDIRECT') or entry.content.startswith(
@@ -353,8 +355,6 @@ class MediawikiMigration:
                     if m is not None:
                         script = '<script>window.location.href = "{}";</script>'.format(
                             m[1])
-
-                entry.md_content = self.fix_hyper_links(stdout.decode('utf-8'))
 
                 if page_id != -1:
                     self._session.execute(update_page, {
