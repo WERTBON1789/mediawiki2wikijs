@@ -871,11 +871,70 @@ class MediawikiMigration:
                                 select(self._dslschema.ResponseStatus.errorCode
                                        ))))))
 
+    def set_defaults(self):
+        self._session.execute(
+            dsl_gql(
+                DSLMutation(
+                    self._dslschema.Mutation.groups.select(
+                        self._dslschema.GroupMutation.update(
+                            id=2,
+                            name='Guests',
+                            redirectOnLogin='',
+                            permissions=['read:pages', 'read:assets'],
+                            pageRules=[{
+                                'deny': False,
+                                'id': 'Migration-Home',
+                                'locales': [],
+                                'match': 'START',
+                                'path': 'home',
+                                'roles': ['read:pages']
+                            }, {
+                                'deny': False,
+                                'id': 'Migration-Start',
+                                'locales': [],
+                                'match': 'START',
+                                'path': LDAP_USER_GROUP_REDIRECT_URI.replace('/', ''),
+                                'roles': ['read:pages']
+                            }, {
+                                'deny': False,
+                                'id': 'Migration-assets',
+                                'locales': [],
+                                'match': 'START',
+                                'path': 'assets',
+                                'roles': ['read:assets']
+                            }],
+                        ).select(
+                            self._dslschema.DefaultResponse.responseResult.
+                            select(
+                                self._dslschema.ResponseStatus.succeeded))))))
+
+        self._session.execute(
+            dsl_gql(
+                DSLMutation(
+                    self._dslschema.Mutation.pages.select(
+                        self._dslschema.PageMutation.create(
+                            content='Nothing.',
+                            description='',
+                            editor='markdown',
+                            isPublished=True,
+                            isPrivate=False,
+                            locale=LOCALE,
+                            path='/home',
+                            scriptJs=
+                            '<script>window.location.href = "{}"</script>'.
+                            format(LDAP_USER_GROUP_REDIRECT_URI),
+                            tags=[],
+                            title='Home',
+                        ).select(
+                            self._dslschema.PageResponse.responseResult.select(
+                                self._dslschema.ResponseStatus.succeeded))))))
+
 
 def main():
     migration = MediawikiMigration(MEDIAWIKI_HOST, MEDIAWIKI_SSH_USER,
                                    MEDIAWIKI_SSH_PASSWD, WIKIJS_HOST,
                                    WIKIJS_TOKEN, MEDIAWIKI_SSH_PORT)
+    migration.set_defaults()
     if not os.path.exists(WIKI_XML_LOCATION):
         migration.download_wiki_dump(WIKI_XML_LOCATION)
     if IMPORT_LDAP.lower() == 'true':
