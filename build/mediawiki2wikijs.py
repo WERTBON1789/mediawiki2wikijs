@@ -442,19 +442,23 @@ class MediawikiMigration:
                     '[{}](/assets/{} "{}")'.format(
                         regex.group(1),
                         regex.group(2).lower(),
-                        regex.group(1).replace(chr(34), '')), line)
+                        regex.group(1).replace('"', '')), line)
                 continue
             regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", line)
             if regex != None:
-                tmp = regex.group(2).replace(':', '/').split('#')
+                tmp = regex.group(2) \
+                    .replace(':', '/') \
+                    .replace('.', '_').split('#')
                 if len(tmp) > 1:
                     tmp[-1] = tmp[-1].lower()
                 tmp = '#'.join(tmp)
                 split_content[index] = re.sub(
                     r"\[.+\]\(.+ \"wikilink\"\)", '[{}](/{} "{}")'.format(
-                        regex.group(1).replace(':', '/'), tmp,
-                        regex.group(1).replace(':', '/').replace(
-                            '"', r'\"').replace('\'', r'\'')), line)
+                        regex.group(1).replace(':', '/').strip(), tmp,
+                        regex.group(1) \
+                            .replace(':', '/') \
+                            .replace('"', r'\"') \
+                            .replace('\'', r'\'')), line)
                 continue
             regex = re.search("<a href=\"(.+)\".*>(.+)</a>", line)
             if regex != None:
