@@ -302,16 +302,6 @@ class MediawikiMigration:
                                            page.timestamp)
         logger.info("Finished construction of the page_data dict")
 
-        if LOCALE != 'en':
-            logger.info(f'Downloading locale {LOCALE}.')
-            self._session.execute(
-                gql('mutation{localization{downloadLocale(locale: "%s"){responseResult{succeeded}}}}'
-                    % LOCALE))
-            logger.info(f'Setting locale to {LOCALE}.')
-            self._session.execute(
-                gql('mutation{localization{updateLocale(locale: "%s", autoUpdate: true, namespacing: false, namespaces: []){responseResult{errorCode}}}}'
-                    % LOCALE))
-
         for path, data in page_data.items():
             page_id = self.page_exists(path)
             if page_id != -1:
@@ -872,6 +862,16 @@ class MediawikiMigration:
                                        ))))))
 
     def set_defaults(self):
+        if LOCALE != 'en':
+            logger.info(f'Downloading locale {LOCALE}.')
+            self._session.execute(
+                gql('mutation{localization{downloadLocale(locale: "%s"){responseResult{succeeded}}}}'
+                    % LOCALE))
+            logger.info(f'Setting locale to {LOCALE}.')
+            self._session.execute(
+                gql('mutation{localization{updateLocale(locale: "%s", autoUpdate: true, namespacing: false, namespaces: []){responseResult{errorCode}}}}'
+                    % LOCALE))
+
         self._session.execute(
             dsl_gql(
                 DSLMutation(
