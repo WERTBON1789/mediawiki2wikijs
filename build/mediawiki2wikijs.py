@@ -310,6 +310,7 @@ class MediawikiMigration:
                 self._session.execute(delete_page, {'id': page_id})
                 page_id = -1
             for index, entry in enumerate(data):
+                entry.content = re.sub(r'(?!.*\[.*)\s*\|\s*(?=.*\])', ' ', entry.content)
                 exitcode, stdout, stderr = self.convert_content(entry.content)
 
                 if exitcode != 0:
@@ -426,7 +427,7 @@ class MediawikiMigration:
 
         for index, line in enumerate(split_content):
             regex = re.search(r"\[(.+)\]\(Media:(.+) \"wikilink\"\)", line)
-            if regex != None:
+            if regex is not None:
                 split_content[index] = re.sub(
                     r"\[.+\]\(Media:.+ \"wikilink\"\)",
                     '[{}](/assets/{} "{}")'.format(
@@ -435,7 +436,7 @@ class MediawikiMigration:
                         regex.group(1).replace('"', '')), line)
                 continue
             regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", line)
-            if regex != None:
+            if regex is not None:
                 tmp = regex.group(2) \
                     .replace(':', '/') \
                     .replace('.', '_').split('#')
@@ -451,7 +452,7 @@ class MediawikiMigration:
                             .replace('\'', r'\'')), line)
                 continue
             regex = re.search("<a href=\"(.+)\".*>(.+)</a>", line)
-            if regex != None:
+            if regex is not None:
                 split_content[index] = re.sub(
                     "<a href=\".+?\" title=\".+?\">.+?</a>",
                     '<a href="/{0}" title="{1}">{1}</a>'.format(
@@ -459,7 +460,7 @@ class MediawikiMigration:
                         regex.group(2)), line)
                 continue
             regex = re.search(r"\!\[(.*)\]\((.+) \"(.+)\"\)", line)
-            if regex != None:
+            if regex is not None:
                 split_content[index] = re.sub(
                     r"\!\[.*\]\(.+ \".+\"\)", '![{}](/assets/{} "{}")'.format(
                         regex.group(1),
@@ -470,7 +471,7 @@ class MediawikiMigration:
                 continue
             regex = re.search(r"<img src=\"(.+)\" title=\"(.+?)\"(.*?)/>",
                               line)
-            if regex != None:
+            if regex is not None:
                 split_content[index] = re.sub(
                     r"<img src=\".+\" title=\".+?\".*?/>",
                     '<img src="/assets/{0}" title="{1}" {2} />'.format(
