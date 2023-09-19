@@ -311,11 +311,11 @@ class MediawikiMigration:
                 self._session.execute(delete_page, {'id': page_id})
                 page_id = -1
             for index, entry in enumerate(data):
-                
+
                 # Remove all pipe characters from external links
                 split_content = entry.content.splitlines()
-                for index, line in enumerate(split_content):
-                    split_content[index] = re.sub(r'(?!.*(?<!\[)\[(?!\[).*)\s*\|\s*(?=.*(?<!\])\](?!\]))', ' ', line)
+                for idx, line in enumerate(split_content):
+                    split_content[idx] = re.sub(r'(?!.*(?<!\[)\[(?!\[).*)\s*\|\s*(?=.*(?<!\])\](?!\]))', ' ', line)
                 entry.content = '\n'.join(split_content)
 
                 exitcode, stdout, stderr = self.convert_content(entry.content)
