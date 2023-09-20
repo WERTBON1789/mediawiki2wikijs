@@ -21,14 +21,14 @@ def fix_hyper_links(content: str):
         if num > 0:
             continue
 
-        split_content[index], num = re.subn("<a href=\"(.+?)\".*>(.+)</a>",
+        split_content[index], num = re.subn("<a href=\"(.+?)\".*>(.+?)</a>",
             lambda m: '<a href="/{0}" title="{1}">{1}</a>'.format(
                 m[1].replace(':', '/'),
                 m[2]), line)
         if num > 0:
             continue
 
-        split_content[index], num = re.subn(r"\!\[(.*)\]\((.+) \"(.+)\"\)",
+        split_content[index], num = re.subn(r"\!\[(.*?)\]\((.+?) \"(.+?)\"\)",
             lambda m: '![{}](/assets/{} "{}")'.format(
                 m[1],
                 m[2].lower(),
@@ -36,7 +36,7 @@ def fix_hyper_links(content: str):
         if num > 0:
             continue
 
-        split_content[index], num = re.subn(r"<img src=\"(.+)\" title=\"(.+?)\"(.*?)/>",
+        split_content[index], num = re.subn(r"<img src=\"(.+?)\" title=\"(.+?)\"(.*?)/>",
             lambda m: '<img src="/assets/{0}" title="{1}" {2} />'.format(
                 m[1].lower(),
                 m[2],
