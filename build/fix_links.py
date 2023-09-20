@@ -5,57 +5,42 @@ def fix_hyper_links(content: str):
     split_content = content.splitlines()
 
     for index, line in enumerate(split_content):
-        regex = re.search(r"\[(.+)\]\(Media:(.+) \"wikilink\"\)", line)
-        if regex is not None:
-            split_content[index] = re.sub(
-                r"\[.+\]\(Media:.+ \"wikilink\"\)",
-                '[{}](/assets/{} "{}")'.format(
-                    regex.group(1),
-                    regex.group(2).lower(),
-                    regex.group(1).replace('"', '')), line)
+        split_content[index], num = re.subn(r"\[(.+?)\]\(Media:(.+?) \"wikilink\"\)",
+            lambda m: '[{}](/assets/{} "{}")'.format(
+                m.group(1),
+                m.group(2).lower(),
+                m.group(1).replace('"', '')), line)
+        if num > 0:
             continue
-        regex = re.search(r"\[(.+)\]\((.+) \"wikilink\"\)", line)
-        if regex is not None:
-            tmp = regex.group(2) \
-                .replace(':', '/') \
-                .replace('.', '_').split('#')
-            if len(tmp) > 1:
-                tmp[-1] = tmp[-1].lower()
-            tmp = '#'.join(tmp)
-            split_content[index] = re.sub(
-                r"\[.+\]\(.+ \"wikilink\"\)", '[{}](/{} "{}")'.format(
-                    regex.group(1).replace(':', '/').strip(), tmp,
-                    regex.group(1) \
-                        .replace(':', '/') \
-                        .replace('"', r'\"') \
-                        .replace('\'', r'\'')), line)
+
+        split_content[index], num = re.subn(r"\[(.+?)\]\((.+?) \"wikilink\"\)",
+            lambda m: '[{}](/{} "{}")'.format(
+                m[1].replace(':', '/').strip(),
+                re.sub("(?<=#)(.*)", lambda m2: m2[1].lower(), m[2].replace(':', '/').replace('.', '_')),
+                m[1].replace(':', '/').replace('"', r'\"').replace('\'', r'\'')), line)
+        if num > 0:
             continue
-        regex = re.search("<a href=\"(.+?)\".*>(.+)</a>", line)
-        if regex is not None:
-            split_content[index] = re.sub(
-                "<a href=\".+?\".*>.+</a>",
-                '<a href="/{0}" title="{1}">{1}</a>'.format(
-                    regex.group(1).replace(':', '/'),
-                    regex.group(2)), line)
+
+        split_content[index], num = re.subn("<a href=\"(.+?)\".*>(.+)</a>",
+            lambda m: '<a href="/{0}" title="{1}">{1}</a>'.format(
+                m[1].replace(':', '/'),
+                m[2]), line)
+        if num > 0:
             continue
-        regex = re.search(r"\!\[(.*)\]\((.+) \"(.+)\"\)", line)
-        if regex is not None:
-            split_content[index] = re.sub(
-                r"\!\[.*\]\(.+ \".+\"\)", '![{}](/assets/{} "{}")'.format(
-                    regex.group(1),
-                    regex.group(2).lower(),
-                    regex.group(3).replace('"',
-                                           r'\"').replace('\'', r'\'')),
-                line)
+
+        split_content[index], num = re.subn(r"\!\[(.*)\]\((.+) \"(.+)\"\)",
+            lambda m: '![{}](/assets/{} "{}")'.format(
+                m[1],
+                m[2].lower(),
+                m[3].replace('"', r'\"').replace('\'', r'\'')), line)
+        if num > 0:
             continue
-        regex = re.search(r"<img src=\"(.+)\" title=\"(.+?)\"(.*?)/>",
-                          line)
-        if regex is not None:
-            split_content[index] = re.sub(
-                r"<img src=\".+\" title=\".+?\".*?/>",
-                '<img src="/assets/{0}" title="{1}" {2} />'.format(
-                    regex.group(1).lower(), regex.group(2),
-                    regex.group(3)), line)
+
+        split_content[index], num = re.subn(r"<img src=\"(.+)\" title=\"(.+?)\"(.*?)/>",
+            lambda m: '<img src="/assets/{0}" title="{1}" {2} />'.format(
+                m[1].lower(),
+                m[2],
+                m[3]), line)
 
     content = '\n'.join(split_content)
 
