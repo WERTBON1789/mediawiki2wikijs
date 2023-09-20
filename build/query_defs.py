@@ -53,6 +53,7 @@ update_page = DSLMutation(
             content=__var.content,
             isPublished=True,
             isPrivate=False,
+            scriptJs=__var.script,
         ).select(
             schema.PageResponse.responseResult.select(schema.ResponseStatus.errorCode)
         )

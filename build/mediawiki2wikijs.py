@@ -340,24 +340,16 @@ class MediawikiMigration:
                 entry.md_content = fix_hyper_links(stdout.decode('utf-8'))
 
                 script = ''
-                if entry.content.startswith(
-                        '#REDIRECT') or entry.content.startswith(
-                            '#WEITERLEITUNG'):
-                    if not entry.content[1:].__contains__('#'):
-                        data[index] = None
-                        logger.info(
-                            f'Page {path}, version {index} is a hard link to another Page, skipping.'
-                        )
-                        continue
-                    m = re.search(r'\[.+\]\((.+) .*\)', entry.md_content)
+                if entry.content.startswith('#REDIRECT') or entry.content.startswith('#WEITERLEITUNG'):
+                    m = re.search(r'\[.+?\]\((.+?) .*\)', entry.md_content)
                     if m is not None:
-                        script = '<script>window.location.href = "{}";</script>'.format(
-                            m[1])
+                        script = '<script>window.location.href = "{}";</script>'.format(m[1])
 
                 if page_id != -1:
                     self._session.execute(update_page, {
                         'id': page_id,
-                        'content': entry.md_content
+                        'content': entry.md_content,
+                        'script': script,
                     })
                     logger.info(f"Updated {path} to version {index}.")
                 else:
@@ -366,7 +358,7 @@ class MediawikiMigration:
                             'content': entry.md_content,
                             'path': path,
                             'title': data.title,
-                            'scriptJs': script
+                            'scriptJs': script,
                         })
                     try:
                         page_id = result["pages"]["create"]["page"]["id"]
