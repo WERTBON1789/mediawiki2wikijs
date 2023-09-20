@@ -3,6 +3,7 @@ import json
 import sys
 import os
 import re
+from pathlib import PurePath
 import ldap
 import paramiko
 import logging
@@ -283,11 +284,11 @@ class MediawikiMigration:
                 .replace('.', '_')
 
             if page_whitelist:
-                if not page_path in page_whitelist:
+                if not any(PurePath(page_path).match(glob) for glob in page_whitelist):
                     continue
 
             if page_blacklist:
-                if page_path in page_blacklist:
+                if any(PurePath(page_path).match(glob) for glob in page_blacklist):
                     continue
 
             if not page_path in page_data:
@@ -884,7 +885,13 @@ def main():
     migration.update_timezone_of_all_users(USER_TIMEZONE)
     if MEDIAWIKI_ASSETS:
         migration.migrate_assets()
-    migration.migrate()
+    page_blacklist = []
+    try:
+        with open('/page_blacklist.txt', 'r') as f:
+            page_blacklist=f.read().splitlines()
+    except FileNotFoundError:
+        pass
+    migration.migrate(page_blacklist=page_blacklist)
 
 
 if __name__ == '__main__':

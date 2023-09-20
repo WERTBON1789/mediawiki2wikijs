@@ -1,3 +1,4 @@
 .env
 /openvpn/*
 /username_mapping.json
+/page_blacklist.txt

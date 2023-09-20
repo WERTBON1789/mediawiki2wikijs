@@ -35,6 +35,7 @@ services:
     volumes:
       - wiki_migration_data:/data:rw
       - "./username_mapping.json:/username_mapping.json:ro"
+      #- "./page_blacklist.txt:/page_blacklist.txt:ro"
 
 volumes:
   wiki_migration_data:
