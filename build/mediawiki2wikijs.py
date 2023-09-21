@@ -3,7 +3,7 @@ import json
 import sys
 import os
 import re
-from pathlib import PurePath
+from fnmatch import fnmatch
 import ldap
 import paramiko
 import logging
@@ -284,11 +284,11 @@ class MediawikiMigration:
                 .replace('.', '_')
 
             if page_whitelist:
-                if not any(PurePath(page_path).match(glob) for glob in page_whitelist):
+                if not any(fnmatch(page_path, pat) for pat in page_whitelist):
                     continue
 
             if page_blacklist:
-                if any(PurePath(page_path).match(glob) for glob in page_blacklist):
+                if any(fnmatch(page_path, pat) for pat in page_blacklist):
                     continue
 
             if not page_path in page_data:
@@ -890,7 +890,7 @@ def main():
         with open('/page_blacklist.txt', 'r') as f:
             page_blacklist=f.read().splitlines()
     except FileNotFoundError:
-        pass
+        logger.info('No page blacklist provided.')
     migration.migrate(page_blacklist=page_blacklist)
 
 
