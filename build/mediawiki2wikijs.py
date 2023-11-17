@@ -743,7 +743,14 @@ class MediawikiMigration:
                                     'read:pages', 'read:assets',
                                     'read:comments', 'write:comments'
                                 ],
-                                pageRules=[]).select(
+                                pageRules=[{
+                                    'deny': False,
+                                    'id': 'Migration-User-Read',
+                                    'locales': [],
+                                    'match': 'START',
+                                    'path': '',
+                                    'roles': ['read:pages']
+                                }]).select(
                                     self._dslschema.DefaultResponse.
                                     responseResult.select(
                                         self._dslschema.ResponseStatus.
